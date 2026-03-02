@@ -6,6 +6,7 @@ struct TranslationPopupView: View {
     let onClose: () -> Void
 
     @State private var didCopy = false
+    @State private var showingOriginal = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -27,11 +28,16 @@ struct TranslationPopupView: View {
             }
 
             HStack {
+                if case .completed = state {
+                    Toggle("원문 보기", isOn: $showingOriginal)
+                        .toggleStyle(.checkbox)
+                }
+
                 Spacer()
 
                 if case .completed(let result) = state {
                     Button(didCopy ? "복사됨" : "복사") {
-                        onCopy(result.text)
+                        onCopy(result.translatedText)
                         didCopy = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             didCopy = false
@@ -39,6 +45,7 @@ struct TranslationPopupView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(didCopy ? .green : .accentColor)
+                    .keyboardShortcut("c", modifiers: .command)
                 }
 
                 Button("닫기") {
@@ -49,10 +56,11 @@ struct TranslationPopupView: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 280, maxWidth: 400)
+        .frame(minWidth: 280, maxWidth: 480, maxHeight: .infinity)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 12, y: 4)
+        .animation(.easeInOut(duration: 0.2), value: showingOriginal)
     }
 
     // MARK: - Subviews
@@ -77,14 +85,45 @@ struct TranslationPopupView: View {
                     .foregroundStyle(.orange)
             }
 
+            // 번역문
             ScrollView {
-                Text(result.text)
+                Text(result.translatedText)
                     .font(.body)
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: 220)
+            .frame(maxHeight: showingOriginal ? 140 : 220)
+
+            // 원문 (토글 시)
+            if showingOriginal {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("원문")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if let lang = result.sourceLanguage {
+                            Text(Locale.current.localizedString(
+                                forIdentifier: lang.minimalIdentifier) ?? "")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    ScrollView {
+                        Text(result.sourceText)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 140)
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
     }
 

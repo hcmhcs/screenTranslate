@@ -28,19 +28,20 @@ final class TranslationPopupWindow: NSPanel {
     /// 최초 표시용 — 윈도우 위치를 설정하고 표시한다.
     func show(state: TranslationCoordinator.State, near selectionRect: CGRect, on screen: NSScreen? = nil) {
         let popupView = makePopupView(state: state)
+        let size = calculateSize(for: state)
 
         if let existing = hostingView {
             existing.rootView = popupView
         } else {
             let hv = NSHostingView(rootView: popupView)
-            hv.frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+            hv.frame = CGRect(origin: .zero, size: size)
             contentView = hv
             hostingView = hv
         }
 
-        let origin = calculateOrigin(near: selectionRect, on: screen)
+        let origin = calculateOrigin(near: selectionRect, popupSize: size, on: screen)
         setFrameOrigin(origin)
-        setContentSize(NSSize(width: 400, height: 300))
+        setContentSize(size)
         makeKeyAndOrderFront(nil)
     }
 
@@ -52,6 +53,20 @@ final class TranslationPopupWindow: NSPanel {
             existing.rootView = popupView
         } else {
             show(state: state, near: selectionRect, on: screen)
+            return
+        }
+
+        // 동적 크기 변경 + 애니메이션
+        let newSize = calculateSize(for: state)
+        let newOrigin = calculateOrigin(near: selectionRect, popupSize: newSize, on: screen)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            self.animator().setFrame(
+                NSRect(origin: newOrigin, size: newSize),
+                display: true
+            )
         }
     }
 
@@ -68,14 +83,49 @@ final class TranslationPopupWindow: NSPanel {
         )
     }
 
+    // MARK: - 동적 크기 계산
+
+    private func calculateSize(for state: TranslationCoordinator.State) -> NSSize {
+        switch state {
+        case .idle:
+            return NSSize(width: 320, height: 120)
+        case .recognizing, .translating:
+            return NSSize(width: 320, height: 120)
+        case .completed(let result):
+            let translatedHeight = estimateTextHeight(result.translatedText)
+            // 원문 보기 토글 시를 위해 sourceText 높이도 고려하여 여유 확보
+            let sourceHeight = estimateTextHeight(result.sourceText)
+            let maxTextHeight = max(translatedHeight, translatedHeight + sourceHeight * 0.5)
+            let contentHeight = maxTextHeight + 100  // 패딩 + 버튼 + 토글 + 구분선
+            let height = min(max(contentHeight, 180), 500)
+            let width: CGFloat = maxTextHeight > 200 ? 480 : (maxTextHeight > 100 ? 400 : 320)
+            return NSSize(width: width, height: height)
+        case .failed:
+            return NSSize(width: 320, height: 180)
+        }
+    }
+
+    /// 텍스트 높이를 추정한다 (줄 수 × 줄 높이).
+    private func estimateTextHeight(_ text: String) -> CGFloat {
+        let lineHeight: CGFloat = 20
+        let charsPerLine: CGFloat = 35  // 평균 한 줄 글자 수 (한글 기준)
+        let lineCount = max(
+            CGFloat(text.components(separatedBy: .newlines).count),
+            ceil(CGFloat(text.count) / charsPerLine)
+        )
+        return lineCount * lineHeight
+    }
+
+    // MARK: - 좌표 계산
+
     /// H2: 좌표 변환 — SwiftUI 좌상단 원점(윈도우-로컬) -> AppKit 좌하단 원점(스크린-글로벌)
     /// 오버레이가 전체 화면이므로 윈도우-로컬 == 스크린-로컬(좌상단)이다.
     /// AppKit의 NSWindow.setFrameOrigin은 좌하단 원점을 기대하므로 Y축 변환이 필요하다.
-    private func calculateOrigin(near selectionRect: CGRect, on screen: NSScreen?) -> NSPoint {
+    private func calculateOrigin(near selectionRect: CGRect, popupSize: NSSize, on screen: NSScreen?) -> NSPoint {
         let targetScreen = screen ?? NSScreen.main!
         let screenFrame = targetScreen.frame
-        let popupHeight: CGFloat = 300
-        let popupWidth: CGFloat = 400
+        let popupWidth = popupSize.width
+        let popupHeight = popupSize.height
         let gap: CGFloat = 8
 
         // SwiftUI 좌상단 -> AppKit 좌하단 변환

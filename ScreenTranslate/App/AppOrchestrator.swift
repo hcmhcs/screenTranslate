@@ -2,6 +2,8 @@ import AppKit
 import CoreGraphics
 import KeyboardShortcuts
 import Observation
+import SwiftData
+import SwiftUI
 
 /// UI 생명주기를 관리하는 싱글턴.
 /// 오버레이/팝업 윈도우 표시/숨김, 권한 확인, 사용자 인터랙션 처리.
@@ -14,6 +16,19 @@ final class AppOrchestrator {
     private var popupWindow: TranslationPopupWindow?
     private let capturer = ScreenCapturer()
     private var currentScreen: NSScreen?
+
+    /// SwiftData 컨테이너 — 히스토리 영구 저장
+    let modelContainer: ModelContainer = {
+        do {
+            return try ModelContainer(for: TranslationRecord.self)
+        } catch {
+            fatalError("ModelContainer 생성 실패: \(error)")
+        }
+    }()
+
+    /// 번역 히스토리 관리자 — @Observable이 lazy를 지원하지 않으므로 추적 제외
+    @ObservationIgnored
+    lazy var historyManager = TranslationHistoryManager(modelContainer: modelContainer)
 
     /// 폴링 루프를 실행하는 Task — 새 번역 시작 시 취소한다.
     private var processingTask: Task<Void, any Error>?
@@ -107,6 +122,23 @@ final class AppOrchestrator {
                 try await Task.sleep(for: .milliseconds(50))
             }
 
+            // 히스토리 기록
+            let finalState = coordinator.state
+            if case .completed(let result) = finalState {
+                historyManager.recordSuccess(
+                    sourceText: result.sourceText,
+                    translatedText: result.translatedText,
+                    sourceLanguageCode: result.sourceLanguage?.minimalIdentifier,
+                    targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
+                )
+            } else if case .failed(let message) = finalState {
+                historyManager.recordFailure(
+                    sourceText: nil,
+                    errorMessage: message,
+                    targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
+                )
+            }
+
             // H5: 번역 완료/실패 후 외부 클릭 시 닫기 모니터 설치
             installClickOutsideMonitor(for: popup)
 
@@ -143,5 +175,33 @@ final class AppOrchestrator {
             NSEvent.removeMonitor(monitor)
             clickMonitor = nil
         }
+    }
+
+    // MARK: - 히스토리 윈도우
+
+    private var historyWindow: NSWindow?
+
+    func showHistory() {
+        if let existing = historyWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "번역 히스토리"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(
+            rootView: HistoryView(historyManager: historyManager)
+        )
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+        self.historyWindow = window
     }
 }

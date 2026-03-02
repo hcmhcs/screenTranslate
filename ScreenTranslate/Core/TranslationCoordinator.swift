@@ -1,6 +1,9 @@
 import CoreGraphics
 import Foundation
 import Observation
+import OSLog
+
+private let logger = Logger(subsystem: "com.app.screentranslate", category: "translation")
 
 /// OCR → Translation 데이터 파이프라인 상태 머신.
 /// OCRProvider와 TranslationProvider를 주입받아 사용한다.
@@ -23,7 +26,7 @@ final class TranslationCoordinator {
             case (.idle, .idle), (.recognizing, .recognizing), (.translating, .translating):
                 return true
             case (.completed(let a), .completed(let b)):
-                return a.text == b.text
+                return a.translatedText == b.translatedText
             case (.failed(let a), .failed(let b)):
                 return a == b
             default:
@@ -33,8 +36,10 @@ final class TranslationCoordinator {
     }
 
     nonisolated struct TranslationResult: Sendable {
-        let text: String
-        let lowConfidence: Bool  // OCR 신뢰도가 낮은 경우
+        let sourceText: String           // 원문 (OCR 결과)
+        let translatedText: String       // 번역문
+        let lowConfidence: Bool          // OCR 신뢰도가 낮은 경우
+        let sourceLanguage: Locale.Language?  // 감지된 소스 언어
     }
 
     private let ocrProvider: OCRProvider
@@ -66,8 +71,8 @@ final class TranslationCoordinator {
                 let ocrResult = try await ocrProvider.recognize(image: image)
                 try Task.checkCancellation()  // ESC 체크 포인트
 
-                debugLog("OCR 결과: \"\(ocrResult.text)\" (신뢰도: \(ocrResult.confidence), 언어: \(ocrResult.detectedLanguage?.minimalIdentifier ?? "nil"))")
-                debugLog("타겟 언어: \(targetLanguage.minimalIdentifier)")
+                logger.debug("OCR 결과: \"\(ocrResult.text)\" (신뢰도: \(ocrResult.confidence), 언어: \(ocrResult.detectedLanguage?.minimalIdentifier ?? "nil"))")
+                logger.debug("타겟 언어: \(self.targetLanguage.minimalIdentifier)")
 
                 // C4: OCR 완료 후, 번역 호출 전에 state를 변경해야 UI가 "번역 중..." 표시
                 state = .translating
@@ -80,11 +85,13 @@ final class TranslationCoordinator {
                     to: targetLanguage
                 )
                 try Task.checkCancellation()  // ESC 체크 포인트
-                debugLog("번역 성공: \"\(translated)\"")
+                logger.debug("번역 성공: \"\(translated)\"")
 
                 let result = TranslationResult(
-                    text: translated,
-                    lowConfidence: ocrResult.confidence < 0.3
+                    sourceText: ocrResult.text,
+                    translatedText: translated,
+                    lowConfidence: ocrResult.confidence < 0.3,
+                    sourceLanguage: effectiveSource
                 )
                 state = .completed(result)
             } catch is CancellationError {
@@ -94,7 +101,7 @@ final class TranslationCoordinator {
             } catch TranslationError.languageNotSupported {
                 state = .failed("이 언어 조합은 지원되지 않습니다.")
             } catch {
-                debugLog("에러: \(error)")
+                logger.error("번역 파이프라인 에러: \(error)")
                 state = .failed(error.localizedDescription)
             }
         }
@@ -109,24 +116,5 @@ final class TranslationCoordinator {
 
     func reset() {
         cancel()
-    }
-}
-
-// MARK: - Debug Logging (임시)
-
-private let debugLogPath = "/tmp/screentranslate_debug.log"
-
-private func debugLog(_ message: String) {
-    let line = "[\(Date())] \(message)\n"
-    if let data = line.data(using: .utf8) {
-        if FileManager.default.fileExists(atPath: debugLogPath) {
-            if let handle = FileHandle(forWritingAtPath: debugLogPath) {
-                handle.seekToEndOfFile()
-                handle.write(data)
-                handle.closeFile()
-            }
-        } else {
-            FileManager.default.createFile(atPath: debugLogPath, contents: data)
-        }
     }
 }
