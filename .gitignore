@@ -36,4 +36,9 @@ playground.xcworkspace
 .omc/
 .agents/
 .claude/
-docs/.omc/
+docs/*
+
+
+# env files
+.env.gitsecret
+.env.local

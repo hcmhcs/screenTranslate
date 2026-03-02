@@ -19,6 +19,7 @@ nonisolated enum L10n {
     static var showAll: String { s("Show All...", ko: "모두 보기...") }
     static var aboutApp: String { s("About ScreenTranslate", ko: "ScreenTranslate 정보") }
     static var settingsMenu: String { s("Settings...", ko: "설정...") }
+    static var checkForUpdates: String { s("Check for Updates...", ko: "업데이트 확인...") }
     static var quit: String { s("Quit", ko: "종료") }
 
     // MARK: - Popup

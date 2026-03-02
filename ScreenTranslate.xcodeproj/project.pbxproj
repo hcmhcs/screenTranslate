@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		084CAE992F5600D100A3BB98 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 084CAE982F5600D100A3BB98 /* Sparkle */; };
 		08A00C062F5560D200BA8C3C /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 0817A98D2F54A8C300AFA5A1 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
 
@@ -70,6 +71,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				08A00C062F5560D200BA8C3C /* KeyboardShortcuts in Frameworks */,
+				084CAE992F5600D100A3BB98 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,6 +133,7 @@
 			name = ScreenTranslate;
 			packageProductDependencies = (
 				0817A98D2F54A8C300AFA5A1 /* KeyboardShortcuts */,
+				084CAE982F5600D100A3BB98 /* Sparkle */,
 			);
 			productName = ScreenTranslate;
 			productReference = 0817A9622F54A8C200AFA5A1 /* ScreenTranslate.app */;
@@ -216,6 +219,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0817A98C2F54A8C300AFA5A1 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				084CAE972F5600D100A3BB98 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0817A9632F54A8C200AFA5A1 /* Products */;
@@ -609,6 +613,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		084CAE972F5600D100A3BB98 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -616,6 +628,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0817A98C2F54A8C300AFA5A1 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		084CAE982F5600D100A3BB98 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 084CAE972F5600D100A3BB98 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

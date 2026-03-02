@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import KeyboardShortcuts
 import Observation
+import Sparkle
 import SwiftData
 import SwiftUI
 
@@ -29,6 +30,18 @@ final class AppOrchestrator {
     /// 번역 히스토리 관리자 — @Observable이 lazy를 지원하지 않으므로 추적 제외
     @ObservationIgnored
     lazy var historyManager = TranslationHistoryManager(modelContainer: modelContainer)
+
+    /// Sparkle 자동 업데이트 컨트롤러
+    @ObservationIgnored
+    let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
+
+    func checkForUpdates() {
+        updaterController.checkForUpdates(nil)
+    }
 
     /// 폴링 루프를 실행하는 Task — 새 번역 시작 시 취소한다.
     private var processingTask: Task<Void, any Error>?
