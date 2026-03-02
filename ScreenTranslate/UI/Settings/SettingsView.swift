@@ -125,7 +125,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520)
+        .frame(width: 480)
         .fixedSize(horizontal: false, vertical: true)
         .task {
             await packManager.refreshAllStatuses()

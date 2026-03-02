@@ -36,4 +36,15 @@ playground.xcworkspace
 .omc/
 .agents/
 .claude/
-docs/.omc/
+docs/*
+
+
+# Website
+website/deploy.sh
+website/assets/
+website/.omc/
+
+# env files
+.env.gitsecret
+.env.local
+skills-lock.json

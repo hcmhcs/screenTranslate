@@ -46,6 +46,11 @@ struct MenuBarView: View {
             AppOrchestrator.shared.showAbout()
         }
 
+        Button(L10n.checkForUpdates) {
+            AppOrchestrator.shared.checkForUpdates()
+        }
+        .disabled(!AppOrchestrator.shared.canCheckForUpdates)
+
         Button(L10n.settingsMenu) {
             AppOrchestrator.shared.showSettings()
         }

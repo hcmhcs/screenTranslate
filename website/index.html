@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScreenTranslate — Translate Any Text on Your Screen</title>
+    <meta name="description" content="Select any area on your Mac screen and get instant translation. Fully on-device with Apple Translation. Private, fast, offline.">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+    <div class="container nav-inner">
+        <a href="#" class="nav-logo">
+            <img src="assets/logo.png" alt="ScreenTranslate" class="nav-logo-icon">
+            ScreenTranslate
+        </a>
+        <div class="nav-links">
+            <a href="#features" data-i18n="nav.features">Features</a>
+            <a href="#how-it-works" data-i18n="nav.howItWorks">How It Works</a>
+            <a href="#download" data-i18n="nav.download">Download</a>
+            <button class="lang-switch" id="lang-switch" aria-label="Switch language">EN / KO</button>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="container">
+        <img src="assets/logo.png" alt="ScreenTranslate" class="hero-logo">
+        <div class="hero-pillars">
+            <span data-i18n="hero.pill1">Private</span>
+            <span class="pill-dot"></span>
+            <span data-i18n="hero.pill2">Fast</span>
+            <span class="pill-dot"></span>
+            <span data-i18n="hero.pill3">Offline</span>
+        </div>
+        <h1 data-i18n="hero.title">Translate anything<br>on your screen</h1>
+        <p class="hero-description" data-i18n="hero.description">
+            Select any area, get instant translation.<br>
+            Powered by Apple Vision OCR and Apple Translation — entirely on-device.
+        </p>
+        <div class="hero-actions">
+            <a href="#download" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v10M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <span data-i18n="hero.download">Download for Mac</span>
+            </a>
+            <a href="#how-it-works" class="btn btn-ghost" data-i18n="hero.learnMore">See how it works</a>
+        </div>
+        <p class="hero-meta">macOS 15+ &middot; Apple Silicon + Intel &middot; <span data-i18n="hero.free">Free</span></p>
+
+        <div class="hero-screenshot">
+            <video autoplay loop muted playsinline>
+                <source src="assets/demo-video.mp4" type="video/mp4">
+            </video>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section id="features" class="features">
+    <div class="container">
+        <h2 data-i18n="features.title">Built for your workflow</h2>
+        <p class="section-subtitle" data-i18n="features.subtitle">No context switching. No copy-paste into a browser. Just select and read.</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg>
+                </div>
+                <h3 data-i18n="features.privacy.title">Completely Private</h3>
+                <p data-i18n="features.privacy.desc">All processing happens on your Mac. Your text never leaves the device — no servers, no tracking, no data collection.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h3 data-i18n="features.instant.title">Instant Translation</h3>
+                <p data-i18n="features.instant.desc">One shortcut triggers area selection, OCR recognition, and translation — all in a single fluid motion.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z" stroke="currentColor" stroke-width="1.5"/></svg>
+                </div>
+                <h3 data-i18n="features.languages.title">18 Languages</h3>
+                <p data-i18n="features.languages.desc">Translate between Korean, English, Japanese, Chinese, and 14 more languages. Auto-detect source language supported.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M2 17l10 5 10-5M2 12l10 5 10-5M12 2L2 7l10 5 10-5L12 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h3 data-i18n="features.offline.title">Works Offline</h3>
+                <p data-i18n="features.offline.desc">Download language packs once, translate anywhere — no internet connection required after initial setup.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h3 data-i18n="features.history.title">Translation History</h3>
+                <p data-i18n="features.history.desc">Every translation is automatically saved. Search, review, and copy previous results anytime from the menu bar.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </div>
+                <h3 data-i18n="features.menubar.title">Lives in Menu Bar</h3>
+                <p data-i18n="features.menubar.desc">Lightweight menu bar app that uses minimal system resources. Always available, never in the way.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section id="how-it-works" class="how-it-works">
+    <div class="container">
+        <h2 data-i18n="howItWorks.title">Three steps. That's it.</h2>
+        <div class="steps-vertical">
+            <div class="step-row">
+                <div class="step-info">
+                    <div class="step-number">1</div>
+                    <h3 data-i18n="howItWorks.step1.title">Press shortcut</h3>
+                    <p data-i18n="howItWorks.step1.desc">Hit your customizable keyboard shortcut to enter selection mode.</p>
+                </div>
+                <div class="step-screenshot">
+                    <img src="assets/area-selection.png" alt="Screen area selection" loading="lazy">
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-info">
+                    <div class="step-number">2</div>
+                    <h3 data-i18n="howItWorks.step2.title">Drag to select</h3>
+                    <p data-i18n="howItWorks.step2.desc">Draw a rectangle around the text you want to translate.</p>
+                </div>
+                <div class="step-screenshot">
+                    <img src="assets/translating.png" alt="Translating in progress" loading="lazy">
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-info">
+                    <div class="step-number">3</div>
+                    <h3 data-i18n="howItWorks.step3.title">Read translation</h3>
+                    <p data-i18n="howItWorks.step3.desc">Translation appears in a popup near your selection in under a second. One click to copy.</p>
+                </div>
+                <div class="step-screenshot">
+                    <img src="assets/translation-result.png" alt="Translation result popup" loading="lazy">
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Showcase -->
+<section class="showcase">
+    <div class="container">
+        <h2 data-i18n="showcase.title">Everything you need</h2>
+        <p class="section-subtitle" data-i18n="showcase.subtitle">Menu bar access, translation history, and customizable settings.</p>
+        <div class="showcase-grid">
+            <div class="showcase-card">
+                <img src="assets/menubar.png" alt="Menu bar" loading="lazy">
+                <h3 data-i18n="showcase.menubar">Menu Bar</h3>
+            </div>
+            <div class="showcase-card">
+                <img src="assets/history.png" alt="Translation history" loading="lazy">
+                <h3 data-i18n="showcase.history">Translation History</h3>
+            </div>
+            <div class="showcase-card">
+                <img src="assets/settings.png" alt="Settings" loading="lazy">
+                <h3 data-i18n="showcase.settings">Settings</h3>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Download -->
+<section id="download" class="download">
+    <div class="container">
+        <h2 data-i18n="download.title">Ready to try?</h2>
+        <p class="section-subtitle" data-i18n="download.subtitle">Free to use. No account required. No data collected.</p>
+        <a href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axo5sh9pv2lg/b/screentranslate-updates/o/releases/latest/ScreenTranslate-latest.dmg"
+           class="btn btn-primary btn-large" id="download-btn">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 1v12M5 9l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 15v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span data-i18n="download.button">Download DMG</span>
+        </a>
+        <div class="download-requirements">
+            <p>macOS 15 Sequoia+ &middot; Apple Silicon + Intel &middot; <span data-i18n="download.free">Free</span></p>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="container footer-inner">
+        <p>&copy; 2026 hanchangmin</p>
+    </div>
+</footer>
+
+<script src="i18n.js"></script>
+</body>
+</html>

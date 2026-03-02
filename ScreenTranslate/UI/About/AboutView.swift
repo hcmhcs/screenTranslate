@@ -21,7 +21,12 @@ struct AboutView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Button(L10n.checkForUpdates) {
+                AppOrchestrator.shared.checkForUpdates()
+            }
+            .disabled(!AppOrchestrator.shared.canCheckForUpdates)
         }
-        .frame(width: 300, height: 200)
+        .frame(width: 300, height: 220)
     }
 }

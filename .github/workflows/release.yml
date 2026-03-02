@@ -1,0 +1,316 @@
+name: Release Build and Deploy
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+    # 1. 코드 체크아웃
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Xcode 버전 설정
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode.app
+
+    # 3. Git 태그에서 버전 추출
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    # 4. SPM 의존성 캐시
+    - name: Cache SPM packages
+      uses: actions/cache@v4
+      with:
+        path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+        key: ${{ runner.os }}-spm-${{ hashFiles('ScreenTranslate.xcodeproj/project.pbxproj') }}
+
+    # 5. 서명 인증서 가져오기
+    - name: Import signing certificate
+      env:
+        CERTIFICATE_BASE64: ${{ secrets.CERTIFICATE_BASE64 }}
+        CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+      run: |
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+        KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+        echo "$CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+        security import $RUNNER_TEMP/certificate.p12 -k "$KEYCHAIN_PATH" \
+          -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple:,codesign: \
+          -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security list-keychains -d user -s "$KEYCHAIN_PATH"
+        security default-keychain -s "$KEYCHAIN_PATH"
+        rm $RUNNER_TEMP/certificate.p12
+
+    # 6. Apple API Key 설정
+    - name: Setup Apple API Key
+      env:
+        APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      run: |
+        mkdir -p ~/private_keys
+        echo "$APPLE_API_KEY_BASE64" | base64 --decode \
+          > ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
+
+    # 7. Archive 빌드
+    - name: Archive
+      run: |
+        xcodebuild archive \
+          -project ScreenTranslate.xcodeproj \
+          -scheme ScreenTranslate \
+          -configuration Release \
+          -archivePath $RUNNER_TEMP/ScreenTranslate.xcarchive \
+          MARKETING_VERSION=${{ steps.version.outputs.VERSION }} \
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+
+    # 8. Export (Developer ID 서명)
+    - name: Export archive
+      run: |
+        xcodebuild -exportArchive \
+          -archivePath $RUNNER_TEMP/ScreenTranslate.xcarchive \
+          -exportOptionsPlist ExportOptions.plist \
+          -exportPath $RUNNER_TEMP/export
+
+    # 9. 앱 코드 서명 (Hardened Runtime)
+    - name: Sign app
+      run: |
+        APP_PATH="$RUNNER_TEMP/export/ScreenTranslate.app"
+        codesign --deep --force --verify --verbose \
+          --options runtime \
+          --sign "Developer ID Application" \
+          "$APP_PATH"
+        codesign --verify --verbose=4 "$APP_PATH"
+
+    # 10. 앱 공증
+    - name: Notarize app
+      env:
+        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      run: |
+        APP_PATH="$RUNNER_TEMP/export/ScreenTranslate.app"
+        ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/app-notarize.zip"
+
+        xcrun notarytool submit "$RUNNER_TEMP/app-notarize.zip" \
+          --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
+          --key-id "$APPLE_API_KEY_ID" \
+          --issuer "$APPLE_API_ISSUER_ID" \
+          --wait
+
+        xcrun stapler staple "$APP_PATH"
+        xcrun stapler validate "$APP_PATH"
+        rm "$RUNNER_TEMP/app-notarize.zip"
+
+    # 11. DMG 생성 + 서명 + 공증
+    - name: Create and notarize DMG
+      env:
+        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      run: |
+        brew install create-dmg
+        VERSION="${{ steps.version.outputs.VERSION }}"
+        DMG_FILE="$RUNNER_TEMP/ScreenTranslate-${VERSION}.dmg"
+
+        set +e
+        create-dmg \
+          --volname "ScreenTranslate" \
+          --window-pos 200 120 \
+          --window-size 600 400 \
+          --icon-size 128 \
+          --icon "ScreenTranslate.app" 180 170 \
+          --hide-extension "ScreenTranslate.app" \
+          --app-drop-link 420 170 \
+          "$DMG_FILE" \
+          "$RUNNER_TEMP/export/"
+        CREATE_DMG_EXIT=$?
+        set -e
+
+        if [ $CREATE_DMG_EXIT -ne 0 ]; then
+          echo "create-dmg failed, falling back to hdiutil"
+          hdiutil create -volname "ScreenTranslate" \
+            -srcfolder "$RUNNER_TEMP/export/" \
+            -ov -format UDZO "$DMG_FILE"
+        fi
+
+        # DMG 서명
+        codesign --force --verify --verbose \
+          --sign "Developer ID Application" "$DMG_FILE"
+
+        # DMG 공증
+        xcrun notarytool submit "$DMG_FILE" \
+          --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
+          --key-id "$APPLE_API_KEY_ID" \
+          --issuer "$APPLE_API_ISSUER_ID" \
+          --wait
+
+        xcrun stapler staple "$DMG_FILE"
+        xcrun stapler validate "$DMG_FILE"
+
+    # 12. Sparkle용 ZIP 생성 + 공증
+    - name: Create ZIP for Sparkle
+      env:
+        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+        APP_PATH="$RUNNER_TEMP/export/ScreenTranslate.app"
+        ZIP_FILE="$RUNNER_TEMP/ScreenTranslate-${VERSION}.zip"
+
+        ditto -c -k --keepParent "$APP_PATH" "$ZIP_FILE"
+
+        xcrun notarytool submit "$ZIP_FILE" \
+          --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
+          --key-id "$APPLE_API_KEY_ID" \
+          --issuer "$APPLE_API_ISSUER_ID" \
+          --wait
+
+    # 13. ZIP 파일 정보 계산
+    - name: Calculate file info
+      id: fileinfo
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+        ZIP_FILE="$RUNNER_TEMP/ScreenTranslate-${VERSION}.zip"
+        FILE_SIZE=$(stat -f%z "$ZIP_FILE")
+        SHA256=$(shasum -a 256 "$ZIP_FILE" | awk '{print $1}')
+        echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
+        echo "SHA256=$SHA256" >> $GITHUB_OUTPUT
+
+    # 14. Sparkle EdDSA 서명
+    - name: Generate Sparkle signature
+      id: signature
+      env:
+        SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+        ZIP_FILE="$RUNNER_TEMP/ScreenTranslate-${VERSION}.zip"
+
+        # sign_update 도구 찾기
+        SIGN_UPDATE=$(find $RUNNER_TEMP/ScreenTranslate.xcarchive \
+          -name "sign_update" -type f 2>/dev/null | head -1)
+
+        if [ -z "$SIGN_UPDATE" ]; then
+          SIGN_UPDATE=$(find ~/Library/Developer/Xcode \
+            -name "sign_update" -path "*/Sparkle/*" -type f 2>/dev/null | head -1)
+        fi
+
+        if [ -z "$SIGN_UPDATE" ]; then
+          echo "Error: sign_update not found"
+          exit 1
+        fi
+
+        chmod +x "$SIGN_UPDATE"
+        echo "$SPARKLE_PRIVATE_KEY" > $RUNNER_TEMP/sparkle_key.txt
+        SIGNATURE_OUTPUT=$("$SIGN_UPDATE" "$ZIP_FILE" -f $RUNNER_TEMP/sparkle_key.txt)
+        ED_SIGNATURE=$(echo "$SIGNATURE_OUTPUT" | \
+          grep -o 'sparkle:edSignature="[^"]*"' | \
+          sed 's/sparkle:edSignature="\(.*\)"/\1/')
+        rm $RUNNER_TEMP/sparkle_key.txt
+
+        if [ -z "$ED_SIGNATURE" ]; then
+          echo "Error: Failed to extract EdDSA signature"
+          echo "Raw output: $SIGNATURE_OUTPUT"
+          exit 1
+        fi
+
+        echo "ED_SIGNATURE=$ED_SIGNATURE" >> $GITHUB_OUTPUT
+
+    # 15. Oracle Cloud에 업로드
+    - name: Upload to Oracle Cloud
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.ORACLE_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.ORACLE_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.STORAGE_REGION }}
+        STORAGE_ENDPOINT: ${{ secrets.STORAGE_ENDPOINT }}
+        STORAGE_BUCKET: ${{ secrets.STORAGE_BUCKET }}
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: |
+        pip install awscli
+        VERSION="${{ steps.version.outputs.VERSION }}"
+
+        aws s3 cp "$RUNNER_TEMP/ScreenTranslate-${VERSION}.zip" \
+          "s3://${STORAGE_BUCKET}/releases/${VERSION}/ScreenTranslate-${VERSION}.zip" \
+          --endpoint-url="$STORAGE_ENDPOINT" \
+          --content-type "application/zip"
+
+        aws s3 cp "$RUNNER_TEMP/ScreenTranslate-${VERSION}.dmg" \
+          "s3://${STORAGE_BUCKET}/releases/${VERSION}/ScreenTranslate-${VERSION}.dmg" \
+          --endpoint-url="$STORAGE_ENDPOINT" \
+          --content-type "application/x-apple-diskimage"
+
+    # 16. Appcast XML 갱신
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Update appcast.xml
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.ORACLE_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.ORACLE_SECRET_ACCESS_KEY }}
+        STORAGE_BASE_URL: ${{ secrets.STORAGE_BASE_URL }}
+        STORAGE_ENDPOINT: ${{ secrets.STORAGE_ENDPOINT }}
+        STORAGE_REGION: ${{ secrets.STORAGE_REGION }}
+        STORAGE_BUCKET: ${{ secrets.STORAGE_BUCKET }}
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: |
+        pip install boto3
+        # CHANGELOG.md에서 릴리즈 노트 추출
+        RELEASE_NOTES=$(./scripts/extract_changelog.sh "${{ steps.version.outputs.VERSION }}" 2>/dev/null || echo "")
+        python scripts/update_appcast.py \
+          --version "${{ steps.version.outputs.VERSION }}" \
+          --url "${{ secrets.STORAGE_BASE_URL }}/releases/${{ steps.version.outputs.VERSION }}/ScreenTranslate-${{ steps.version.outputs.VERSION }}.zip" \
+          --size "${{ steps.fileinfo.outputs.FILE_SIZE }}" \
+          --checksum "${{ steps.fileinfo.outputs.SHA256 }}" \
+          --signature "${{ steps.signature.outputs.ED_SIGNATURE }}" \
+          ${RELEASE_NOTES:+--description "$RELEASE_NOTES"}
+
+    # 17. CHANGELOG에서 릴리즈 노트 추출
+    - name: Extract release notes
+      id: release_notes
+      run: |
+        NOTES=$(./scripts/extract_changelog.sh "${{ steps.version.outputs.VERSION }}" 2>/dev/null || echo "")
+        # GitHub Actions 멀티라인 출력
+        echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "$NOTES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    # 18. GitHub Release 생성
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ runner.temp }}/ScreenTranslate-${{ steps.version.outputs.VERSION }}.dmg
+          ${{ runner.temp }}/ScreenTranslate-${{ steps.version.outputs.VERSION }}.zip
+        body: |
+          ## ScreenTranslate v${{ steps.version.outputs.VERSION }}
+
+          ${{ steps.release_notes.outputs.NOTES }}
+
+          ---
+          **Download:** [ScreenTranslate-${{ steps.version.outputs.VERSION }}.dmg](${{ secrets.STORAGE_BASE_URL }}/releases/${{ steps.version.outputs.VERSION }}/ScreenTranslate-${{ steps.version.outputs.VERSION }}.dmg)
+
+          Existing users will be updated automatically via Sparkle.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # 19. 정리
+    - name: Cleanup
+      if: always()
+      run: |
+        if [ -f "$RUNNER_TEMP/app-signing.keychain-db" ]; then
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true
+        fi
+        rm -f ~/private_keys/AuthKey_*.p8
