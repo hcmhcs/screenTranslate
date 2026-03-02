@@ -1,3 +1,4 @@
+import KeyboardShortcuts
 import SwiftUI
 
 struct MenuBarView: View {
@@ -5,7 +6,7 @@ struct MenuBarView: View {
         Button("번역하기") {
             AppOrchestrator.shared.startTranslation()
         }
-        .keyboardShortcut("T", modifiers: [.control, .shift])
+        .globalKeyboardShortcut(.translate)
 
         Divider()
 

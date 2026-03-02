@@ -3,7 +3,7 @@ import SwiftUI
 struct HistoryView: View {
     let historyManager: TranslationHistoryManager
 
-    @State private var selectedRecord: TranslationRecord?
+    @State private var expandedRecordID: UUID?
     @State private var showingDeleteAllConfirm = false
 
     var body: some View {
@@ -30,22 +30,35 @@ struct HistoryView: View {
             if historyManager.recentRecords.isEmpty {
                 emptyView
             } else {
-                List(historyManager.recentRecords, id: \.id, selection: $selectedRecord) { record in
-                    HistoryRowView(record: record)
-                        .contextMenu {
-                            if let translated = record.translatedText {
-                                Button("번역문 복사") {
-                                    copyToClipboard(translated)
-                                }
-                            }
-                            Button("원문 복사") {
-                                copyToClipboard(record.sourceText)
-                            }
-                            Divider()
-                            Button("삭제", role: .destructive) {
-                                historyManager.delete(record)
+                List(historyManager.recentRecords, id: \.id) { record in
+                    HistoryRowView(
+                        record: record,
+                        isExpanded: expandedRecordID == record.id
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if expandedRecordID == record.id {
+                                expandedRecordID = nil
+                            } else {
+                                expandedRecordID = record.id
                             }
                         }
+                    }
+                    .contextMenu {
+                        if let translated = record.translatedText {
+                            Button("번역문 복사") {
+                                copyToClipboard(translated)
+                            }
+                        }
+                        Button("원문 복사") {
+                            copyToClipboard(record.sourceText)
+                        }
+                        Divider()
+                        Button("삭제", role: .destructive) {
+                            historyManager.delete(record)
+                        }
+                    }
                 }
                 .listStyle(.inset(alternatesRowBackgrounds: true))
             }
@@ -87,6 +100,7 @@ struct HistoryView: View {
 
 struct HistoryRowView: View {
     let record: TranslationRecord
+    let isExpanded: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -111,34 +125,112 @@ struct HistoryRowView: View {
 
                 Spacer()
 
+                // 펼침 표시
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+
                 // 타임스탬프
                 Text(record.timestamp, style: .relative)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
 
-            // 번역문 또는 에러
-            if let translated = record.translatedText {
-                Text(translated)
-                    .font(.body)
-                    .lineLimit(2)
-                    .textSelection(.enabled)
-            } else if let error = record.errorMessage {
-                Text(error)
-                    .font(.body)
-                    .foregroundStyle(.red)
-                    .lineLimit(1)
-            }
-
-            // 원문 (축약)
-            if !record.sourceText.isEmpty {
-                Text(record.sourceText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            if isExpanded {
+                // 펼침: 전체 내용 표시
+                expandedContent
+            } else {
+                // 접힘: 축약 표시
+                collapsedContent
             }
         }
         .padding(.vertical, 4)
+    }
+
+    // MARK: - 접힘 상태 (기존과 동일)
+
+    @ViewBuilder
+    private var collapsedContent: some View {
+        if let translated = record.translatedText {
+            Text(translated)
+                .font(.body)
+                .lineLimit(2)
+                .textSelection(.enabled)
+        } else if let error = record.errorMessage {
+            Text(error)
+                .font(.body)
+                .foregroundStyle(.red)
+                .lineLimit(1)
+        }
+
+        if !record.sourceText.isEmpty {
+            Text(record.sourceText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    // MARK: - 펼침 상태 (상세 보기)
+
+    @ViewBuilder
+    private var expandedContent: some View {
+        // 번역문 전체
+        if let translated = record.translatedText {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("번역문")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(translated)
+                    .font(.body)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 4)
+        } else if let error = record.errorMessage {
+            Text(error)
+                .font(.body)
+                .foregroundStyle(.red)
+        }
+
+        Divider()
+
+        // 원문 전체
+        if !record.sourceText.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("원문")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(record.sourceText)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 4)
+        }
+
+        // 액션 버튼
+        HStack(spacing: 12) {
+            if let translated = record.translatedText {
+                Button("번역문 복사") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(translated, forType: .string)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
+            if !record.sourceText.isEmpty {
+                Button("원문 복사") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(record.sourceText, forType: .string)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(.top, 4)
     }
 
     private func languageName(for code: String) -> String {

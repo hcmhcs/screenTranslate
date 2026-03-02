@@ -25,10 +25,23 @@ final class TranslationPopupWindow: NSPanel {
     /// 매번 새 NSHostingView를 생성하면 뷰 트리가 처음부터 재구성되어 깜빡임이 발생한다.
     private var hostingView: NSHostingView<TranslationPopupView>?
 
+    /// 현재 표시 중인 선택 영역과 스크린 — 원문 토글 리사이즈에 사용
+    private var lastSelectionRect: CGRect = .zero
+    private var lastScreen: NSScreen?
+
+    /// 현재 상태 — 원문 토글 시 크기 재계산에 사용
+    private var currentState: TranslationCoordinator.State = .idle
+    private var isShowingOriginal = false
+
     /// 최초 표시용 — 윈도우 위치를 설정하고 표시한다.
     func show(state: TranslationCoordinator.State, near selectionRect: CGRect, on screen: NSScreen? = nil) {
+        currentState = state
+        isShowingOriginal = false
+        lastSelectionRect = selectionRect
+        lastScreen = screen
+
         let popupView = makePopupView(state: state)
-        let size = calculateSize(for: state)
+        let size = calculateSize(for: state, showingOriginal: false)
 
         if let existing = hostingView {
             existing.rootView = popupView
@@ -47,6 +60,10 @@ final class TranslationPopupWindow: NSPanel {
 
     /// H1: 상태만 업데이트 — NSHostingView.rootView 교체로 깜빡임 없이 갱신
     func updateState(_ state: TranslationCoordinator.State, near selectionRect: CGRect, on screen: NSScreen? = nil) {
+        currentState = state
+        lastSelectionRect = selectionRect
+        lastScreen = screen
+
         let popupView = makePopupView(state: state)
 
         if let existing = hostingView {
@@ -57,7 +74,7 @@ final class TranslationPopupWindow: NSPanel {
         }
 
         // 동적 크기 변경 + 애니메이션
-        let newSize = calculateSize(for: state)
+        let newSize = calculateSize(for: state, showingOriginal: isShowingOriginal)
         let newOrigin = calculateOrigin(near: selectionRect, popupSize: newSize, on: screen)
 
         NSAnimationContext.runAnimationGroup { context in
@@ -79,13 +96,32 @@ final class TranslationPopupWindow: NSPanel {
             },
             onClose: { [weak self] in
                 self?.close()
+            },
+            onToggleOriginal: { [weak self] showing in
+                self?.handleToggleOriginal(showing)
             }
         )
     }
 
+    /// 원문 보기 토글 시 윈도우 크기를 동적으로 재조정한다.
+    private func handleToggleOriginal(_ showing: Bool) {
+        isShowingOriginal = showing
+        let newSize = calculateSize(for: currentState, showingOriginal: showing)
+        let newOrigin = calculateOrigin(near: lastSelectionRect, popupSize: newSize, on: lastScreen)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            self.animator().setFrame(
+                NSRect(origin: newOrigin, size: newSize),
+                display: true
+            )
+        }
+    }
+
     // MARK: - 동적 크기 계산
 
-    private func calculateSize(for state: TranslationCoordinator.State) -> NSSize {
+    private func calculateSize(for state: TranslationCoordinator.State, showingOriginal: Bool) -> NSSize {
         switch state {
         case .idle:
             return NSSize(width: 320, height: 120)
@@ -93,12 +129,17 @@ final class TranslationPopupWindow: NSPanel {
             return NSSize(width: 320, height: 120)
         case .completed(let result):
             let translatedHeight = estimateTextHeight(result.translatedText)
-            // 원문 보기 토글 시를 위해 sourceText 높이도 고려하여 여유 확보
-            let sourceHeight = estimateTextHeight(result.sourceText)
-            let maxTextHeight = max(translatedHeight, translatedHeight + sourceHeight * 0.5)
-            let contentHeight = maxTextHeight + 100  // 패딩 + 버튼 + 토글 + 구분선
-            let height = min(max(contentHeight, 180), 500)
-            let width: CGFloat = maxTextHeight > 200 ? 480 : (maxTextHeight > 100 ? 400 : 320)
+            // 번역문 높이만 기준 (원문 사전 할당 제거)
+            var contentHeight = min(translatedHeight, 300) + 100  // 패딩 + 버튼 + 토글 + 구분선
+
+            if showingOriginal {
+                // 원문 토글 시 원문 높이를 추가
+                let sourceHeight = estimateTextHeight(result.sourceText)
+                contentHeight += min(sourceHeight, 200) + 30  // 원문 + 원문 헤더 + 구분선
+            }
+
+            let height = min(max(contentHeight, 150), 600)
+            let width: CGFloat = translatedHeight > 200 ? 480 : (translatedHeight > 100 ? 400 : 320)
             return NSSize(width: width, height: height)
         case .failed:
             return NSSize(width: 320, height: 180)

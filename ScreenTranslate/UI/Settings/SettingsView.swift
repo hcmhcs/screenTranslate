@@ -14,11 +14,23 @@ struct SettingsView: View {
                     Text("자동 감지").tag("auto")
                     Divider()
                     ForEach(AppSettings.supportedLanguages, id: \.code) { lang in
-                        Text(lang.name).tag(lang.code)
+                        Label {
+                            Text(lang.name)
+                        } icon: {
+                            sourceStatusIcon(for: lang.code)
+                        }
+                        .tag(lang.code)
                     }
                 }
                 .pickerStyle(.menu)
                 .onChange(of: settings.sourceLanguageCode) { _, newValue in
+                    if newValue != "auto" {
+                        let status = packManager.sourceStatuses[newValue]
+                        if status == .available {
+                            pendingDownloadCode = newValue
+                            showDownloadAlert = true
+                        }
+                    }
                     Task {
                         await packManager.refreshStatuses(sourceCode: newValue)
                     }
@@ -40,6 +52,9 @@ struct SettingsView: View {
                     if status == .available {
                         pendingDownloadCode = newValue
                         showDownloadAlert = true
+                    }
+                    Task {
+                        await packManager.refreshSourceStatuses(targetCode: newValue)
                     }
                 }
 
@@ -67,6 +82,7 @@ struct SettingsView: View {
         )
         .task {
             await packManager.refreshStatuses(sourceCode: settings.sourceLanguageCode)
+            await packManager.refreshSourceStatuses(targetCode: settings.targetLanguageCode)
         }
         .alert("언어팩 미설치", isPresented: $showDownloadAlert) {
             Button("확인") {}
@@ -84,6 +100,27 @@ struct SettingsView: View {
     @ViewBuilder
     private func statusIcon(for code: String) -> some View {
         switch packManager.statuses[code] {
+        case .installed:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        case .available:
+            Image(systemName: "arrow.down.circle")
+                .foregroundStyle(.orange)
+        case .checking:
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 16, height: 16)
+        case .unsupported:
+            Image(systemName: "xmark.circle")
+                .foregroundStyle(.secondary)
+        case .none:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func sourceStatusIcon(for code: String) -> some View {
+        switch packManager.sourceStatuses[code] {
         case .installed:
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green)

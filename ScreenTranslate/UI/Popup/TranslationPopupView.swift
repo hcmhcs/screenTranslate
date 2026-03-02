@@ -4,6 +4,7 @@ struct TranslationPopupView: View {
     let state: TranslationCoordinator.State
     let onCopy: (String) -> Void
     let onClose: () -> Void
+    let onToggleOriginal: (Bool) -> Void
 
     @State private var didCopy = false
     @State private var showingOriginal = false
@@ -31,6 +32,9 @@ struct TranslationPopupView: View {
                 if case .completed = state {
                     Toggle("원문 보기", isOn: $showingOriginal)
                         .toggleStyle(.checkbox)
+                        .onChange(of: showingOriginal) { _, newValue in
+                            onToggleOriginal(newValue)
+                        }
                 }
 
                 Spacer()
@@ -56,7 +60,7 @@ struct TranslationPopupView: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 280, maxWidth: 480, maxHeight: .infinity)
+        .frame(minWidth: 280, maxWidth: 480)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 12, y: 4)
@@ -85,7 +89,7 @@ struct TranslationPopupView: View {
                     .foregroundStyle(.orange)
             }
 
-            // 번역문
+            // 번역문 — 짧은 텍스트는 자연 크기, 긴 텍스트만 스크롤
             ScrollView {
                 Text(result.translatedText)
                     .font(.body)
@@ -93,7 +97,7 @@ struct TranslationPopupView: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: showingOriginal ? 140 : 220)
+            .frame(maxHeight: 300)
 
             // 원문 (토글 시)
             if showingOriginal {
@@ -120,7 +124,7 @@ struct TranslationPopupView: View {
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxHeight: 140)
+                    .frame(maxHeight: 200)
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }

@@ -8,8 +8,11 @@ private let logger = Logger(subsystem: "com.app.screentranslate", category: "lan
 @MainActor
 @Observable
 final class LanguagePackManager {
-    /// 각 언어 코드별 상태
+    /// 각 언어 코드별 상태 (타겟 언어 기준)
     var statuses: [String: LanguageStatus] = [:]
+
+    /// 각 언어 코드별 상태 (원문 언어 기준 — 현재 타겟 → 각 원문 방향)
+    var sourceStatuses: [String: LanguageStatus] = [:]
 
     enum LanguageStatus: Equatable {
         case installed
@@ -46,6 +49,30 @@ final class LanguagePackManager {
                 statuses[lang.code] = .unsupported
             @unknown default:
                 statuses[lang.code] = .unsupported
+            }
+        }
+    }
+
+    /// 현재 타겟 언어 기준으로 모든 원문 언어 상태를 확인한다.
+    func refreshSourceStatuses(targetCode: String) async {
+        let targetLang = Locale.Language(identifier: targetCode)
+
+        for lang in AppSettings.supportedLanguages {
+            sourceStatuses[lang.code] = .checking
+        }
+
+        for lang in AppSettings.supportedLanguages {
+            let source = Locale.Language(identifier: lang.code)
+            let status = await availability.status(from: source, to: targetLang)
+            switch status {
+            case .installed:
+                sourceStatuses[lang.code] = .installed
+            case .supported:
+                sourceStatuses[lang.code] = .available
+            case .unsupported:
+                sourceStatuses[lang.code] = .unsupported
+            @unknown default:
+                sourceStatuses[lang.code] = .unsupported
             }
         }
     }
