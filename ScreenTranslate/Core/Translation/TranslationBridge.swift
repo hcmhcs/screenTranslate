@@ -32,7 +32,7 @@ final class TranslationBridge {
     func translate(text: String, from source: Locale.Language?, to target: Locale.Language) async throws -> String {
         // C1: 기존 continuation이 있으면 취소 처리
         if let existing = continuation {
-            existing.resume(throwing: TranslationError.translationFailed("새 번역 요청으로 취소됨"))
+            existing.resume(throwing: CancellationError())
             continuation = nil
         }
 
@@ -43,13 +43,22 @@ final class TranslationBridge {
             self.translatedText = nil
             self.errorMessage = nil
 
-            // C5: configuration을 nil로 리셋한 후 새 값을 설정하여
-            // 같은 언어쌍이라도 .translationTask가 재트리거되도록 한다.
-            self.configuration = nil
-            self.configuration = TranslationSession.Configuration(
-                source: source,
-                target: target
-            )
+            // C5: Apple 공식 패턴 — invalidate()로 재트리거
+            if self.configuration != nil {
+                if self.configuration!.source != source || self.configuration!.target != target {
+                    self.configuration = TranslationSession.Configuration(
+                        source: source,
+                        target: target
+                    )
+                } else {
+                    self.configuration!.invalidate()
+                }
+            } else {
+                self.configuration = TranslationSession.Configuration(
+                    source: source,
+                    target: target
+                )
+            }
         }
     }
 

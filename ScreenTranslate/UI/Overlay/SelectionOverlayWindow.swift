@@ -49,6 +49,7 @@ final class SelectionOverlayWindow: NSWindow {
         )
 
         contentView = NSHostingView(rootView: overlayView)
+        NSApp.activate()
         makeKeyAndOrderFront(nil)
     }
 
