@@ -1,0 +1,39 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# App bundle
+*.app
+
+# Archives
+*.xcarchive
+
+# Code coverage
+*.gcda
+*.gcno
+*.profdata
+*.profraw
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# OMC / Claude Code
+.omc/
+.agents/
+.claude/
+docs/.omc/
