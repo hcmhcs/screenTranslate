@@ -83,6 +83,7 @@ final class AppSettings {
 
     private var _hasDeepLKey = KeychainHelper.load(key: TranslationProviderFactory.deepLKeychainKey) != nil
     private var _hasGoogleKey = KeychainHelper.load(key: TranslationProviderFactory.googleKeychainKey) != nil
+    private var _hasAzureKey = KeychainHelper.load(key: TranslationProviderFactory.azureKeychainKey) != nil
 
     var hasDeepLKey: Bool {
         access(keyPath: \._hasDeepLKey)
@@ -92,6 +93,11 @@ final class AppSettings {
     var hasGoogleKey: Bool {
         access(keyPath: \._hasGoogleKey)
         return _hasGoogleKey
+    }
+
+    var hasAzureKey: Bool {
+        access(keyPath: \._hasAzureKey)
+        return _hasAzureKey
     }
 
     // MARK: - API Key Operations
@@ -114,6 +120,31 @@ final class AppSettings {
     func deleteGoogleKey() {
         try? KeychainHelper.delete(key: TranslationProviderFactory.googleKeychainKey)
         withMutation(keyPath: \._hasGoogleKey) { _hasGoogleKey = false }
+    }
+
+    func saveAzureKey(_ key: String) throws {
+        try KeychainHelper.save(key: TranslationProviderFactory.azureKeychainKey, value: key)
+        withMutation(keyPath: \._hasAzureKey) { _hasAzureKey = true }
+    }
+
+    func deleteAzureKey() {
+        try? KeychainHelper.delete(key: TranslationProviderFactory.azureKeychainKey)
+        withMutation(keyPath: \._hasAzureKey) { _hasAzureKey = false }
+    }
+
+    // MARK: - Azure Region
+
+    var azureRegion: String? {
+        get {
+            access(keyPath: \.azureRegion)
+            let value = UserDefaults.standard.string(forKey: "com.screentranslate.azureRegion")
+            return (value?.isEmpty == true) ? nil : value
+        }
+        set {
+            withMutation(keyPath: \.azureRegion) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.azureRegion")
+            }
+        }
     }
 
     // MARK: - Computed Helpers

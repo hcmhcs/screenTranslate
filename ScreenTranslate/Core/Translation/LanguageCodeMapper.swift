@@ -27,4 +27,17 @@ enum LanguageCodeMapper {
         default:         return String(id.prefix(2)).lowercased()
         }
     }
+
+    /// Locale.Language → Azure Translator 코드
+    /// Azure는 BCP-47 기반으로 대부분 minimalIdentifier와 동일.
+    /// "pt-BR" → "pt" (Azure 기본값이 브라질 포르투갈어)
+    static func toAzureCode(_ lang: Locale.Language) -> String {
+        let id = lang.minimalIdentifier
+        switch id {
+        case "pt-BR": return "pt"
+        case "pt-PT": return "pt-pt"
+        case "fr-CA": return "fr-ca"
+        default:       return id
+        }
+    }
 }

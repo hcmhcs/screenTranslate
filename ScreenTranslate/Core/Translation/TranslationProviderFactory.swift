@@ -6,6 +6,7 @@ enum TranslationProviderFactory {
     /// Keychain 키 이름 상수
     static let deepLKeychainKey = "com.screentranslate.api.deepl"
     static let googleKeychainKey = "com.screentranslate.api.google"
+    static let azureKeychainKey = "com.screentranslate.api.azure"
 
     static func make(name: String) -> TranslationProvider {
         switch name {
@@ -20,6 +21,13 @@ enum TranslationProviderFactory {
                 return AppleTranslationProvider()
             }
             return GoogleTranslationProvider(apiKey: apiKey)
+
+        case "Microsoft Azure":
+            guard let apiKey = KeychainHelper.load(key: azureKeychainKey) else {
+                return AppleTranslationProvider()
+            }
+            let region = AppSettings.shared.azureRegion
+            return AzureTranslationProvider(apiKey: apiKey, region: region)
 
         default:
             return AppleTranslationProvider()

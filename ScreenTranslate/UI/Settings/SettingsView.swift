@@ -14,6 +14,8 @@ struct SettingsView: View {
     // API Key 입력 상태
     @State private var deepLKeyInput = ""
     @State private var googleKeyInput = ""
+    @State private var azureKeyInput = ""
+    @State private var azureRegionInput = ""
 
     var body: some View {
         Form {
@@ -119,83 +121,124 @@ struct SettingsView: View {
 
                 Picker(L10n.translationEngine, selection: $settings.translationProviderName) {
                     Text(L10n.translationEngineName).tag("Apple Translation")
-                    if settings.hasDeepLKey {
-                        Text("DeepL").tag("DeepL")
-                    }
-                    if settings.hasGoogleKey {
-                        Text("Google Cloud").tag("Google Cloud")
-                    }
+                    Text(settings.hasDeepLKey ? "DeepL" : "DeepL (\(L10n.apiKeysSection))").tag("DeepL")
+                    Text(settings.hasGoogleKey ? "Google Cloud" : "Google Cloud (\(L10n.apiKeysSection))").tag("Google Cloud")
+                    Text(settings.hasAzureKey ? "Microsoft Azure" : "Microsoft Azure (\(L10n.apiKeysSection))").tag("Microsoft Azure")
                 }
                 .pickerStyle(.menu)
                 .onChange(of: settings.translationProviderName) { _, _ in
                     AppOrchestrator.shared.updateTranslationProvider()
                 }
-            }
 
-            Section(L10n.apiKeysSection) {
-                // DeepL API Key
-                HStack {
-                    Text("DeepL")
-                        .frame(width: 100, alignment: .leading)
+                // DeepL 선택 시 API 키 입력 인라인 표시
+                if settings.translationProviderName == "DeepL" {
                     if settings.hasDeepLKey {
-                        Text(L10n.apiKeySaved)
-                            .foregroundStyle(.green)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Button(L10n.clear) {
-                            settings.deleteDeepLKey()
-                            deepLKeyInput = ""
-                            if settings.translationProviderName == "DeepL" {
+                        HStack {
+                            Label(L10n.apiKeySaved, systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.callout)
+                            Spacer()
+                            Button(L10n.clear) {
+                                settings.deleteDeepLKey()
+                                deepLKeyInput = ""
                                 settings.translationProviderName = "Apple Translation"
                                 AppOrchestrator.shared.updateTranslationProvider()
                             }
+                            .controlSize(.small)
                         }
-                        .controlSize(.small)
                     } else {
-                        SecureField(L10n.enterApiKey, text: $deepLKeyInput)
-                            .textFieldStyle(.roundedBorder)
-                        Button(L10n.confirm) {
-                            guard !deepLKeyInput.isEmpty else { return }
-                            try? settings.saveDeepLKey(deepLKeyInput)
-                            deepLKeyInput = ""
+                        HStack {
+                            SecureField(L10n.enterApiKey, text: $deepLKeyInput)
+                                .textFieldStyle(.roundedBorder)
+                            Button(L10n.confirm) {
+                                guard !deepLKeyInput.isEmpty else { return }
+                                try? settings.saveDeepLKey(deepLKeyInput)
+                                deepLKeyInput = ""
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            }
+                            .controlSize(.small)
+                            .disabled(deepLKeyInput.isEmpty)
                         }
-                        .controlSize(.small)
-                        .disabled(deepLKeyInput.isEmpty)
                     }
                 }
 
-                // Google Cloud API Key
-                HStack {
-                    Text("Google Cloud")
-                        .frame(width: 100, alignment: .leading)
+                // Google Cloud 선택 시 API 키 입력 인라인 표시
+                if settings.translationProviderName == "Google Cloud" {
                     if settings.hasGoogleKey {
-                        Text(L10n.apiKeySaved)
-                            .foregroundStyle(.green)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Button(L10n.clear) {
-                            settings.deleteGoogleKey()
-                            googleKeyInput = ""
-                            if settings.translationProviderName == "Google Cloud" {
+                        HStack {
+                            Label(L10n.apiKeySaved, systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.callout)
+                            Spacer()
+                            Button(L10n.clear) {
+                                settings.deleteGoogleKey()
+                                googleKeyInput = ""
                                 settings.translationProviderName = "Apple Translation"
                                 AppOrchestrator.shared.updateTranslationProvider()
                             }
+                            .controlSize(.small)
                         }
-                        .controlSize(.small)
                     } else {
-                        SecureField(L10n.enterApiKey, text: $googleKeyInput)
-                            .textFieldStyle(.roundedBorder)
-                        Button(L10n.confirm) {
-                            guard !googleKeyInput.isEmpty else { return }
-                            try? settings.saveGoogleKey(googleKeyInput)
-                            googleKeyInput = ""
+                        HStack {
+                            SecureField(L10n.enterApiKey, text: $googleKeyInput)
+                                .textFieldStyle(.roundedBorder)
+                            Button(L10n.confirm) {
+                                guard !googleKeyInput.isEmpty else { return }
+                                try? settings.saveGoogleKey(googleKeyInput)
+                                googleKeyInput = ""
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            }
+                            .controlSize(.small)
+                            .disabled(googleKeyInput.isEmpty)
                         }
-                        .controlSize(.small)
-                        .disabled(googleKeyInput.isEmpty)
                     }
                 }
 
-                Text(L10n.apiKeyRequired)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // Microsoft Azure 선택 시 API 키 + 리전 입력 인라인 표시
+                if settings.translationProviderName == "Microsoft Azure" {
+                    if settings.hasAzureKey {
+                        HStack {
+                            Label(
+                                settings.azureRegion.map { "\(L10n.apiKeySaved) (\($0))" } ?? L10n.apiKeySaved,
+                                systemImage: "checkmark.circle.fill"
+                            )
+                            .foregroundStyle(.green)
+                            .font(.callout)
+                            Spacer()
+                            Button(L10n.clear) {
+                                settings.deleteAzureKey()
+                                settings.azureRegion = nil
+                                azureKeyInput = ""
+                                azureRegionInput = ""
+                                settings.translationProviderName = "Apple Translation"
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            }
+                            .controlSize(.small)
+                        }
+                    } else {
+                        VStack(spacing: 6) {
+                            HStack {
+                                SecureField(L10n.enterApiKey, text: $azureKeyInput)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                            HStack {
+                                TextField(L10n.regionPlaceholder, text: $azureRegionInput)
+                                    .textFieldStyle(.roundedBorder)
+                                Button(L10n.confirm) {
+                                    guard !azureKeyInput.isEmpty else { return }
+                                    try? settings.saveAzureKey(azureKeyInput)
+                                    let region = azureRegionInput.trimmingCharacters(in: .whitespaces)
+                                    settings.azureRegion = region.isEmpty ? nil : region
+                                    azureKeyInput = ""
+                                    azureRegionInput = ""
+                                    AppOrchestrator.shared.updateTranslationProvider()
+                                }
+                                .controlSize(.small)
+                                .disabled(azureKeyInput.isEmpty)
+                            }
+                        }
+                    }
+                }
             }
 
             Section(L10n.shortcutSection) {
@@ -213,6 +256,10 @@ struct SettingsView: View {
                 AppOrchestrator.shared.updateTranslationProvider()
             }
             if settings.translationProviderName == "Google Cloud" && !settings.hasGoogleKey {
+                settings.translationProviderName = "Apple Translation"
+                AppOrchestrator.shared.updateTranslationProvider()
+            }
+            if settings.translationProviderName == "Microsoft Azure" && !settings.hasAzureKey {
                 settings.translationProviderName = "Apple Translation"
                 AppOrchestrator.shared.updateTranslationProvider()
             }
