@@ -40,6 +40,15 @@ struct SettingsView: View {
                             }
                         }
                     }
+
+                Toggle(isOn: $settings.autoCopyToClipboard) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.autoCopyToClipboard)
+                        Text(L10n.autoCopyToClipboardDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section(L10n.translationSection) {

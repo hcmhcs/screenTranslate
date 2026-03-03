@@ -43,7 +43,7 @@ struct TranslationPopupView: View {
                     Button(didCopy ? L10n.copied : L10n.copy) {
                         onCopy(result.translatedText)
                         didCopy = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             didCopy = false
                         }
                     }

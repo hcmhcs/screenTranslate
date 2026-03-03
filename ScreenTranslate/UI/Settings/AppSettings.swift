@@ -147,6 +147,20 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Auto Copy
+
+    var autoCopyToClipboard: Bool {
+        get {
+            access(keyPath: \.autoCopyToClipboard)
+            return UserDefaults.standard.object(forKey: "com.screentranslate.autoCopyToClipboard") as? Bool ?? true
+        }
+        set {
+            withMutation(keyPath: \.autoCopyToClipboard) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.autoCopyToClipboard")
+            }
+        }
+    }
+
     // MARK: - Onboarding
 
     var hasCompletedOnboarding: Bool {

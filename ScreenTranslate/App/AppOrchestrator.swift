@@ -165,6 +165,10 @@ final class AppOrchestrator {
                     sourceLanguageCode: result.sourceLanguage?.minimalIdentifier,
                     targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
                 )
+                if AppSettings.shared.autoCopyToClipboard {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(result.translatedText, forType: .string)
+                }
             } else if case .failed(let message) = finalState {
                 historyManager.recordFailure(
                     sourceText: nil,

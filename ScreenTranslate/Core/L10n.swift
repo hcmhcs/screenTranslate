@@ -69,6 +69,9 @@ nonisolated enum L10n {
 
     // MARK: - Advanced
 
+    static var autoCopyToClipboard: String { s("Auto-copy to Clipboard", ko: "자동 클립보드 복사") }
+    static var autoCopyToClipboardDesc: String { s("Automatically copy translated text to clipboard.", ko: "번역 완료 시 번역문을 자동으로 클립보드에 복사합니다.") }
+
     static var advancedSection: String { s("Advanced", ko: "고급") }
     static var ocrTextPreprocessing: String { s("Text Preprocessing", ko: "텍스트 전처리") }
     static var ocrTextPreprocessingDesc: String { s("Merge line breaks from OCR into natural sentences before translation.", ko: "번역 전 OCR 줄바꿈을 자연스러운 문장으로 병합합니다.") }
