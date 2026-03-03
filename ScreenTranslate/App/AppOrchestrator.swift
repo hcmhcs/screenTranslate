@@ -256,7 +256,7 @@ final class AppOrchestrator {
         window.delegate = OnboardingWindowDelegate.shared
 
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         self.onboardingWindow = window
     }
 
@@ -267,7 +267,7 @@ final class AppOrchestrator {
     func showSettings() {
         if let existing = settingsWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            NSApp.activate(ignoringOtherApps: true)
             return
         }
 
@@ -282,7 +282,7 @@ final class AppOrchestrator {
         window.center()
         window.contentView = NSHostingView(rootView: SettingsView())
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         self.settingsWindow = window
     }
 
@@ -293,7 +293,7 @@ final class AppOrchestrator {
     func showAbout() {
         if let existing = aboutWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            NSApp.activate(ignoringOtherApps: true)
             return
         }
 
@@ -308,7 +308,7 @@ final class AppOrchestrator {
         window.center()
         window.contentView = NSHostingView(rootView: AboutView())
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         self.aboutWindow = window
     }
 
@@ -324,7 +324,7 @@ final class AppOrchestrator {
                     HistoryView(historyManager: historyManager, initialExpandedID: recordID)
             }
             existing.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            NSApp.activate(ignoringOtherApps: true)
             return
         }
 
@@ -341,7 +341,7 @@ final class AppOrchestrator {
             rootView: HistoryView(historyManager: historyManager, initialExpandedID: recordID)
         )
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         self.historyWindow = window
     }
 }
