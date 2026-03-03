@@ -1,7 +1,0 @@
-User-agent: *
-Allow: /
-Sitemap: https://screentranslate.filient.ai/sitemap.xml
-
-# GEO: AI/LLM discovery
-# https://llmstxt.org/
-LLMs-Txt: https://screentranslate.filient.ai/llms.txt

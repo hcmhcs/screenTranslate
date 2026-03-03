@@ -40,9 +40,7 @@ docs/*
 
 
 # Website
-website/deploy.sh
-website/assets/
-website/.omc/
+website/
 
 # env files
 .env.gitsecret
