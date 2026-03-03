@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-03-04
+
+### Added
+- 웹사이트 인터랙티브 데모 섹션 (드래그 번역 체험)
+- About 화면 및 웹사이트 푸터에 연락처 이메일 추가
+- README.md 추가
+
+### Fixed
+- DMG 설치 파일에 불필요한 파일 포함되는 문제 수정 (DistributionSummary.plist, ExportOptions.plist, Packaging.log)
+- 설정 화면 OCR/번역 엔진 이름 i18n 처리 (로컬/Local)
+
 ## [1.1.0] - 2026-03-03
 
 ### Added

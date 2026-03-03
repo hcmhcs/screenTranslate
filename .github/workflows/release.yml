@@ -126,6 +126,11 @@ jobs:
         APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
       run: |
+        # export 부산물 제거 (DMG에 포함되지 않도록)
+        rm -f "$RUNNER_TEMP/export/DistributionSummary.plist"
+        rm -f "$RUNNER_TEMP/export/ExportOptions.plist"
+        rm -f "$RUNNER_TEMP/export/Packaging.log"
+
         brew install create-dmg
         VERSION="${{ steps.version.outputs.VERSION }}"
         DMG_FILE="$RUNNER_TEMP/ScreenTranslate-${VERSION}.dmg"
