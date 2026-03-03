@@ -57,5 +57,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = NSHostingView(rootView: TranslationBridgeView())
         window.orderBack(nil)
         self.bridgeWindow = window
+
+        // 첫 실행 온보딩 표시
+        AppOrchestrator.shared.showOnboardingIfNeeded()
     }
 }

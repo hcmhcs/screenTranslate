@@ -104,6 +104,24 @@ nonisolated enum L10n {
     }
     static var openSystemSettings: String { s("Open System Settings", ko: "시스템 설정 열기") }
 
+    // MARK: - Onboarding
+
+    static var onboardingWelcome: String { s("Welcome to ScreenTranslate", ko: "ScreenTranslate에 오신 것을 환영합니다") }
+    static var onboardingShortcutTitle: String { s("Set Your Shortcut", ko: "단축키를 설정하세요") }
+    static var onboardingShortcutDesc: String { s("Press the shortcut anywhere to translate text on screen.", ko: "어디서든 단축키를 눌러 화면의 텍스트를 번역하세요.") }
+    static var onboardingFlow1: String { s("Press shortcut", ko: "단축키 누르기") }
+    static var onboardingFlow2: String { s("Select area", ko: "영역 선택") }
+    static var onboardingFlow3: String { s("See translation", ko: "번역 확인") }
+    static var onboardingChangeHint: String { s("Use the default or click to change", ko: "기본값을 사용하거나 클릭하여 변경하세요") }
+    static var onboardingLangTitle: String { s("Download Language Pack", ko: "언어팩 다운로드") }
+    static var onboardingLangAutoSet: String { s("Your translation language has been set automatically.", ko: "번역 언어가 자동으로 설정되었습니다.") }
+    static var onboardingLangChoose: String { s("Which language do you want to translate into?", ko: "어떤 언어로 번역할까요?") }
+    static var onboardingLangInstalled: String { s("Language pack installed", ko: "언어팩 설치됨") }
+    static var onboardingLangNotInstalled: String { s("Language pack not installed", ko: "언어팩 미설치") }
+    static var onboardingNext: String { s("Next", ko: "다음") }
+    static var onboardingDone: String { s("Get Started", ko: "시작하기") }
+    static var onboardingSkip: String { s("Skip", ko: "건너뛰기") }
+
     // MARK: - Errors
 
     static var noTextFound: String { s("No text found in the selected area.", ko: "선택한 영역에서 텍스트를 찾을 수 없습니다.") }

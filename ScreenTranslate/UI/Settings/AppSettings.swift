@@ -42,7 +42,7 @@ final class AppSettings {
     var targetLanguageCode: String {
         get {
             access(keyPath: \.targetLanguageCode)
-            return UserDefaults.standard.string(forKey: "com.screentranslate.targetLanguageCode") ?? "ko"
+            return UserDefaults.standard.string(forKey: "com.screentranslate.targetLanguageCode") ?? AppSettings.defaultTargetLanguage
         }
         set {
             withMutation(keyPath: \.targetLanguageCode) {
@@ -147,6 +147,20 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Onboarding
+
+    var hasCompletedOnboarding: Bool {
+        get {
+            access(keyPath: \.hasCompletedOnboarding)
+            return UserDefaults.standard.bool(forKey: "com.screentranslate.hasCompletedOnboarding")
+        }
+        set {
+            withMutation(keyPath: \.hasCompletedOnboarding) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.hasCompletedOnboarding")
+            }
+        }
+    }
+
     // MARK: - Advanced
 
     var ocrTextPreprocessing: Bool {
@@ -169,6 +183,33 @@ final class AppSettings {
 
     var targetLanguage: Locale.Language {
         Locale.Language(identifier: targetLanguageCode)
+    }
+
+    // MARK: - System Language Detection
+
+    /// 시스템 언어를 기반으로 기본 타겟 언어를 결정한다.
+    /// 시스템 언어가 지원 목록에 있으면 해당 언어, 없으면 "ko" (가장 많은 사용자).
+    static let defaultTargetLanguage: String = {
+        let systemLang = Locale.current.language.languageCode?.identifier ?? "en"
+        // 시스템 언어가 영어면 타겟을 자동 결정할 수 없으므로 "ko" 기본값 유지
+        if systemLang == "en" { return "ko" }
+        // 시스템 언어가 지원 목록에 있으면 그 언어를 타겟으로
+        let supported = supportedLanguages.map(\.code)
+        if supported.contains(systemLang) { return systemLang }
+        // zh → zh-Hans 매핑
+        if systemLang == "zh" {
+            let script = Locale.current.language.script?.identifier ?? "Hans"
+            return script == "Hant" ? "zh-Hant" : "zh-Hans"
+        }
+        return "ko"
+    }()
+
+    /// 시스템 언어가 지원 목록에 있는지 (영어 제외). 온보딩에서 자동 설정 vs 선택 UI 분기에 사용.
+    static var systemLanguageIsSupported: Bool {
+        let systemLang = Locale.current.language.languageCode?.identifier ?? "en"
+        if systemLang == "en" { return false }
+        if systemLang == "zh" { return true }
+        return supportedLanguages.map(\.code).contains(systemLang)
     }
 
     // MARK: - Supported Languages

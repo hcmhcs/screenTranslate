@@ -211,6 +211,55 @@ final class AppOrchestrator {
         }
     }
 
+    // MARK: - 온보딩 윈도우
+
+    private var onboardingWindow: NSWindow?
+
+    func showOnboardingIfNeeded() {
+        // 중복 윈도우 방지
+        if let existing = onboardingWindow, existing.isVisible { return }
+
+        // 기존 사용자 판별: UserDefaults에 앱 설정 키가 하나라도 있으면 기존 사용자로 간주.
+        // (이 키들은 computed property + ?? 기본값이라 사용자가 명시적으로 변경해야만 저장됨)
+        let existingUserKeys = [
+            "com.screentranslate.targetLanguageCode",
+            "com.screentranslate.sourceLanguageCode",
+            "com.screentranslate.translationProviderName",
+            "com.screentranslate.ocrTextPreprocessing",
+        ]
+        let isExistingUser = existingUserKeys.contains { UserDefaults.standard.object(forKey: $0) != nil }
+        if isExistingUser {
+            AppSettings.shared.hasCompletedOnboarding = true
+            return
+        }
+
+        guard !AppSettings.shared.hasCompletedOnboarding else { return }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "ScreenTranslate"
+        window.isReleasedWhenClosed = false
+        window.center()
+
+        // onComplete: finishOnboarding()이 hasCompletedOnboarding 설정을 담당하고,
+        // X 버튼은 OnboardingWindowDelegate가 처리하므로 여기서는 윈도우만 닫는다.
+        let onboardingView = OnboardingView {
+            window.close()
+        }
+        window.contentView = NSHostingView(rootView: onboardingView)
+
+        // X 버튼으로 닫을 때도 완료 처리
+        window.delegate = OnboardingWindowDelegate.shared
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+        self.onboardingWindow = window
+    }
+
     // MARK: - 설정 윈도우
 
     private var settingsWindow: NSWindow?
@@ -294,5 +343,15 @@ final class AppOrchestrator {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
         self.historyWindow = window
+    }
+}
+
+/// 온보딩 윈도우의 X 버튼 클릭 시 완료 처리
+@MainActor
+final class OnboardingWindowDelegate: NSObject, NSWindowDelegate {
+    static let shared = OnboardingWindowDelegate()
+
+    func windowWillClose(_ notification: Notification) {
+        AppSettings.shared.hasCompletedOnboarding = true
     }
 }
