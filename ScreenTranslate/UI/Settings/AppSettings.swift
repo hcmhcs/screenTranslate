@@ -79,6 +79,43 @@ final class AppSettings {
         }
     }
 
+    // MARK: - API Key Status (캐싱하여 매 렌더 시 Keychain 호출 방지)
+
+    private var _hasDeepLKey = KeychainHelper.load(key: TranslationProviderFactory.deepLKeychainKey) != nil
+    private var _hasGoogleKey = KeychainHelper.load(key: TranslationProviderFactory.googleKeychainKey) != nil
+
+    var hasDeepLKey: Bool {
+        access(keyPath: \._hasDeepLKey)
+        return _hasDeepLKey
+    }
+
+    var hasGoogleKey: Bool {
+        access(keyPath: \._hasGoogleKey)
+        return _hasGoogleKey
+    }
+
+    // MARK: - API Key Operations
+
+    func saveDeepLKey(_ key: String) throws {
+        try KeychainHelper.save(key: TranslationProviderFactory.deepLKeychainKey, value: key)
+        withMutation(keyPath: \._hasDeepLKey) { _hasDeepLKey = true }
+    }
+
+    func deleteDeepLKey() {
+        try? KeychainHelper.delete(key: TranslationProviderFactory.deepLKeychainKey)
+        withMutation(keyPath: \._hasDeepLKey) { _hasDeepLKey = false }
+    }
+
+    func saveGoogleKey(_ key: String) throws {
+        try KeychainHelper.save(key: TranslationProviderFactory.googleKeychainKey, value: key)
+        withMutation(keyPath: \._hasGoogleKey) { _hasGoogleKey = true }
+    }
+
+    func deleteGoogleKey() {
+        try? KeychainHelper.delete(key: TranslationProviderFactory.googleKeychainKey)
+        withMutation(keyPath: \._hasGoogleKey) { _hasGoogleKey = false }
+    }
+
     // MARK: - Computed Helpers
 
     var sourceLanguage: Locale.Language? {

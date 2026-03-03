@@ -43,7 +43,7 @@ final class TranslationCoordinator {
     }
 
     private let ocrProvider: OCRProvider
-    private let translationProvider: TranslationProvider
+    private(set) var translationProvider: TranslationProvider
     var sourceLanguage: Locale.Language?  // nil이면 자동 감지
     var targetLanguage: Locale.Language
 
@@ -116,5 +116,10 @@ final class TranslationCoordinator {
 
     func reset() {
         cancel()
+    }
+
+    /// 런타임에 Provider를 교체한다 (설정 변경 시).
+    func updateProvider(_ provider: TranslationProvider) {
+        self.translationProvider = provider
     }
 }

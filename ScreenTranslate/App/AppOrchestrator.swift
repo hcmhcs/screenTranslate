@@ -58,9 +58,15 @@ final class AppOrchestrator {
     /// 생성되어 @Observable 상태 추적이 불가능하고, 진행 중인 Task가 소실된다.
     let coordinator = TranslationCoordinator(
         ocrProvider: VisionOCRProvider(),
-        translationProvider: AppleTranslationProvider(),
+        translationProvider: TranslationProviderFactory.make(name: AppSettings.shared.translationProviderName),
         targetLanguage: AppSettings.shared.targetLanguage
     )
+
+    /// 설정에서 번역 엔진이 변경되면 Provider를 교체한다.
+    func updateTranslationProvider() {
+        let provider = TranslationProviderFactory.make(name: AppSettings.shared.translationProviderName)
+        coordinator.updateProvider(provider)
+    }
 
     func setup() {
         KeyboardShortcuts.onKeyUp(for: .translate) { [weak self] in
@@ -152,7 +158,7 @@ final class AppOrchestrator {
             // 히스토리 기록
             let finalState = coordinator.state
             if case .completed(let result) = finalState {
-                TelemetryDeck.signal("translationCompleted")
+                TelemetryDeck.signal("translationCompleted", parameters: ["engine": coordinator.translationProvider.name])
                 historyManager.recordSuccess(
                     sourceText: result.sourceText,
                     translatedText: result.translatedText,

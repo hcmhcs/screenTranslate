@@ -55,6 +55,16 @@ nonisolated enum L10n {
     static var downloading: String { s("Downloading...", ko: "다운로드 중...") }
     static var later: String { s("Later", ko: "나중에") }
 
+    // MARK: - API Keys
+
+    static var apiKeysSection: String { s("API Keys", ko: "API 키") }
+    static var enterApiKey: String { s("Enter API Key", ko: "API 키 입력") }
+    static var apiKeyRequired: String { s("API key required to use this engine.", ko: "이 엔진을 사용하려면 API 키가 필요합니다.") }
+    static var apiKeySaved: String { s("Saved", ko: "저장됨") }
+    static var clear: String { s("Clear", ko: "삭제") }
+    static var apiKeyInvalid: String { s("API key is not configured.", ko: "API 키가 설정되지 않았습니다.") }
+    static var quotaExceeded: String { s("API quota exceeded. Please check your plan.", ko: "API 사용량을 초과했습니다. 요금제를 확인해주세요.") }
+
     static func languagePackMessage(name: String) -> String {
         s("\(name) language pack is not installed.\nWould you like to download it now?",
           ko: "\(name) 언어팩이 설치되지 않았습니다.\n지금 다운로드할까요?")

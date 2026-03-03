@@ -11,6 +11,10 @@ struct SettingsView: View {
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var isDownloading = false
 
+    // API Key 입력 상태
+    @State private var deepLKeyInput = ""
+    @State private var googleKeyInput = ""
+
     var body: some View {
         Form {
             Section(L10n.generalSection) {
@@ -115,9 +119,83 @@ struct SettingsView: View {
 
                 Picker(L10n.translationEngine, selection: $settings.translationProviderName) {
                     Text(L10n.translationEngineName).tag("Apple Translation")
+                    if settings.hasDeepLKey {
+                        Text("DeepL").tag("DeepL")
+                    }
+                    if settings.hasGoogleKey {
+                        Text("Google Cloud").tag("Google Cloud")
+                    }
                 }
                 .pickerStyle(.menu)
-                .disabled(true)
+                .onChange(of: settings.translationProviderName) { _, _ in
+                    AppOrchestrator.shared.updateTranslationProvider()
+                }
+            }
+
+            Section(L10n.apiKeysSection) {
+                // DeepL API Key
+                HStack {
+                    Text("DeepL")
+                        .frame(width: 100, alignment: .leading)
+                    if settings.hasDeepLKey {
+                        Text(L10n.apiKeySaved)
+                            .foregroundStyle(.green)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button(L10n.clear) {
+                            settings.deleteDeepLKey()
+                            deepLKeyInput = ""
+                            if settings.translationProviderName == "DeepL" {
+                                settings.translationProviderName = "Apple Translation"
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            }
+                        }
+                        .controlSize(.small)
+                    } else {
+                        SecureField(L10n.enterApiKey, text: $deepLKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                        Button(L10n.confirm) {
+                            guard !deepLKeyInput.isEmpty else { return }
+                            try? settings.saveDeepLKey(deepLKeyInput)
+                            deepLKeyInput = ""
+                        }
+                        .controlSize(.small)
+                        .disabled(deepLKeyInput.isEmpty)
+                    }
+                }
+
+                // Google Cloud API Key
+                HStack {
+                    Text("Google Cloud")
+                        .frame(width: 100, alignment: .leading)
+                    if settings.hasGoogleKey {
+                        Text(L10n.apiKeySaved)
+                            .foregroundStyle(.green)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button(L10n.clear) {
+                            settings.deleteGoogleKey()
+                            googleKeyInput = ""
+                            if settings.translationProviderName == "Google Cloud" {
+                                settings.translationProviderName = "Apple Translation"
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            }
+                        }
+                        .controlSize(.small)
+                    } else {
+                        SecureField(L10n.enterApiKey, text: $googleKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                        Button(L10n.confirm) {
+                            guard !googleKeyInput.isEmpty else { return }
+                            try? settings.saveGoogleKey(googleKeyInput)
+                            googleKeyInput = ""
+                        }
+                        .controlSize(.small)
+                        .disabled(googleKeyInput.isEmpty)
+                    }
+                }
+
+                Text(L10n.apiKeyRequired)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section(L10n.shortcutSection) {
@@ -129,6 +207,15 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .task {
             await packManager.refreshAllStatuses()
+            // 외부에서 Keychain이 초기화된 경우 선택값 유효성 검증
+            if settings.translationProviderName == "DeepL" && !settings.hasDeepLKey {
+                settings.translationProviderName = "Apple Translation"
+                AppOrchestrator.shared.updateTranslationProvider()
+            }
+            if settings.translationProviderName == "Google Cloud" && !settings.hasGoogleKey {
+                settings.translationProviderName = "Apple Translation"
+                AppOrchestrator.shared.updateTranslationProvider()
+            }
         }
         .alert(L10n.languagePackNotInstalled, isPresented: $showDownloadAlert) {
             Button(L10n.download) {

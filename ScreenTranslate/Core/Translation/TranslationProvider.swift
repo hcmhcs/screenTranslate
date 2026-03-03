@@ -30,7 +30,7 @@ nonisolated enum TranslationError: LocalizedError {
         case .languageNotSupported:
             return L10n.unsupportedLanguagePair
         case .apiKeyMissing:
-            return "API Key is not configured."
+            return L10n.apiKeyInvalid
         }
     }
 }
