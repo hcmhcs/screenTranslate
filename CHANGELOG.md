@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-03-04
+
+### Added
+- 번역 완료 시 자동 클립보드 복사 기능 (설정에서 ON/OFF 가능, 기본값 ON)
+- 첫 실행 온보딩 (단축키 설정 + 언어팩 다운로드 2단계)
+- BYOK 번역 엔진 지원 (DeepL, Google Cloud Translation, Microsoft Azure Translator)
+- OCR 텍스트 전처리 기능 (줄바꿈 → 자연스러운 문장 병합)
+- 웹사이트 번역 엔진 실시간 비교 섹션
+- 웹사이트 번역 엔진 설명 페이지 추가
+
+### Improved
+- "Copied" 피드백 표시 시간 단축 (1.5초 → 0.5초)
+- DeepL 번역 품질 개선 (split_sentences nonewlines 파라미터 적용)
+- 웹사이트 CSS/JS 캐시 버스팅 추가
+
+### Fixed
+- 윈도우가 다른 앱 위로 올라오지 않는 문제 수정
+- Sparkle 업데이트 판단 오류 수정 (CFBundleVersion 불일치)
+- API 키 에러 메시지 개선
+
 ## [1.1.1] - 2026-03-04
 
 ### Added
