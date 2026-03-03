@@ -62,7 +62,7 @@ nonisolated enum L10n {
     static var apiKeyRequired: String { s("API key required to use this engine.", ko: "이 엔진을 사용하려면 API 키가 필요합니다.") }
     static var apiKeySaved: String { s("Saved", ko: "저장됨") }
     static var clear: String { s("Clear", ko: "삭제") }
-    static var apiKeyInvalid: String { s("API key is not configured.", ko: "API 키가 설정되지 않았습니다.") }
+    static var apiKeyInvalid: String { s("API key is invalid. Please check your key.", ko: "API 키가 유효하지 않습니다. 키를 확인해주세요.") }
     static var quotaExceeded: String { s("API quota exceeded. Please check your plan.", ko: "API 사용량을 초과했습니다. 요금제를 확인해주세요.") }
     static var regionLabel: String { s("Region", ko: "리전") }
     static var regionPlaceholder: String { s("e.g. koreacentral", ko: "예: koreacentral") }
