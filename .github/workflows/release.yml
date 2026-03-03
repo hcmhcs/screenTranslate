@@ -80,7 +80,8 @@ jobs:
           -authenticationKeyPath ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
           -authenticationKeyID "$APPLE_API_KEY_ID" \
           -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" \
-          MARKETING_VERSION=${{ steps.version.outputs.VERSION }}
+          MARKETING_VERSION=${{ steps.version.outputs.VERSION }} \
+          CURRENT_PROJECT_VERSION=${{ steps.version.outputs.VERSION }}
 
     # 8. Export (Developer ID 서명)
     - name: Export archive
