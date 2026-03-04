@@ -40,9 +40,16 @@ docs/*
 
 
 # Website
-website/deploy.sh
-website/assets/
-website/.omc/
+website/
+
+# Scripts (배포/릴리스 스크립트) — CI에서 사용하는 파일 제외
+scripts/release-local.sh
+scripts/oci_s3.sh
+scripts/compare_engines.swift
+scripts/compare_engines_reverse.swift
+
+# Local changelog
+CHANGELOG.local.md
 
 # env files
 .env.gitsecret

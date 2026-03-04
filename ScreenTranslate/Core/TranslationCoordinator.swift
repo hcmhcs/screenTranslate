@@ -155,6 +155,8 @@ final class TranslationCoordinator {
             with: "",
             options: .regularExpression
         )
+        // 2.5 단락 경계 감지: 문장 종결 + 짧은 줄 → \n을 \n\n으로 업그레이드
+        result = Self.detectParagraphBreaks(result)
         // 3. 이중 줄바꿈(단락 구분)을 임시 플레이스홀더로 보존
         let placeholder = "\u{FFFC}"
         result = result.replacingOccurrences(of: "\n\n", with: placeholder)
@@ -175,5 +177,45 @@ final class TranslationCoordinator {
             options: .regularExpression
         )
         return result.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// 단락 경계 감지: 문장 종결 부호 + 짧은 줄 → \n을 \n\n으로 업그레이드.
+    /// 줄 수가 3 미만이거나 유효 줄(5자 이상)이 3 미만이면 휴리스틱을 적용하지 않는다.
+    private static func detectParagraphBreaks(_ text: String) -> String {
+        let lines = text.components(separatedBy: "\n")
+        guard lines.count >= 3 else { return text }
+
+        // 유효 줄(5자 이상)의 길이 배열 → 중앙값 계산
+        let lengths = lines.compactMap { line -> Int? in
+            let len = line.trimmingCharacters(in: .whitespaces).count
+            return len >= 5 ? len : nil
+        }
+        guard lengths.count >= 3 else { return text }
+        let median = lengths.sorted()[lengths.count / 2]
+        let threshold = Double(median) * 0.75
+
+        let sentenceEndPattern = "[.!?:;。！？；][\"')）」』]*\\s*$"
+
+        var result: [String] = []
+        for (i, line) in lines.enumerated() {
+            result.append(line)
+
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            // 빈 줄, 마지막 줄, 다음 줄이 이미 빈 줄이면 건너뛴다
+            guard !trimmed.isEmpty,
+                  i < lines.count - 1,
+                  !lines[i + 1].trimmingCharacters(in: .whitespaces).isEmpty
+            else { continue }
+
+            let endsWithPunctuation = trimmed.range(
+                of: sentenceEndPattern, options: .regularExpression) != nil
+            let isShort = Double(trimmed.count) < threshold
+
+            if endsWithPunctuation && isShort {
+                result.append("")  // 빈 줄 삽입 → joined 시 \n\n 생성
+            }
+        }
+
+        return result.joined(separator: "\n")
     }
 }

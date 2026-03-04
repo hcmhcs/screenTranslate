@@ -1,11 +1,6 @@
 #!/bin/bash
-# ========================================
-# CHANGELOG.md에서 특정 버전의 릴리즈 노트 추출
-# ========================================
-# Usage: ./scripts/extract_changelog.sh 0.0.1
-#
-# CHANGELOG.md에서 지정된 버전의 섹션만 추출하여 stdout으로 출력.
-# 버전이 없으면 빈 문자열 반환 (exit 0).
+# Extract release notes for a specific version from CHANGELOG.md
+# Usage: ./scripts/extract_changelog.sh <version>
 
 set -e
 
@@ -17,7 +12,6 @@ if [ ! -f "$CHANGELOG" ]; then
     exit 0
 fi
 
-# 버전 헤더 사이의 내용 추출 (## [version] 부터 다음 ## [ 까지)
 awk -v ver="$VERSION" '
     /^## \[/ {
         if (found) exit

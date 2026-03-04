@@ -26,7 +26,7 @@ final class TranslationCoordinatorTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(100))
 
         if case .completed(let result) = sut.state {
-            XCTAssertEqual(result.text, "안녕하세요")
+            XCTAssertEqual(result.translatedText, "안녕하세요")
             XCTAssertFalse(result.lowConfidence)
         } else {
             XCTFail("completed 상태여야 한다: \(sut.state)")
@@ -97,6 +97,40 @@ final class TranslationCoordinatorTests: XCTestCase {
         // MockTranslationProvider는 lastReceivedText만 추적하므로
         // detectedLanguage 전달은 빌드 시 타입 체크로 보장
         XCTAssertEqual(mockTranslation.lastReceivedText, "Hello")
+    }
+
+    // MARK: - preprocessOCRText 단락 감지 테스트
+
+    func test_preprocessOCRText_preservesParagraphBreaks() {
+        // 짧은 줄 + 마침표 → 단락으로 감지
+        let input = """
+        This is a line that fills the full width of text.
+        End of paragraph one.
+        This is the start of a second paragraph that is long.
+        """
+        let result = TranslationCoordinator.preprocessOCRText(input)
+        XCTAssertTrue(result.contains("\n\n"), "단락 구분이 보존되어야 한다")
+    }
+
+    func test_preprocessOCRText_mergesWordWrapLines() {
+        // 비슷한 길이 + 종결부호 없음 → 줄바꿈 병합
+        let input = "This is a long line that wraps at\nthe edge and continues here."
+        let result = TranslationCoordinator.preprocessOCRText(input)
+        XCTAssertFalse(result.contains("\n"), "줄바꿈이 공백으로 병합되어야 한다")
+    }
+
+    func test_preprocessOCRText_shortTextNoHeuristic() {
+        // 2줄 이하 → 휴리스틱 미적용
+        let input = "Short.\nNext."
+        let result = TranslationCoordinator.preprocessOCRText(input)
+        XCTAssertFalse(result.contains("\n"), "2줄 텍스트는 휴리스틱 미적용")
+    }
+
+    func test_preprocessOCRText_cjkParagraphBreaks() {
+        // CJK 문장 종결 + 짧은 줄
+        let input = "이것은 첫 번째 단락의 긴 문장입니다 테스트용으로 길게 작성합니다\n첫 번째 단락 끝。\n두 번째 단락이 여기서 시작됩니다 이것도 길게 작성합니다"
+        let result = TranslationCoordinator.preprocessOCRText(input)
+        XCTAssertTrue(result.contains("\n\n"), "CJK 단락 구분이 보존되어야 한다")
     }
 
     // MARK: - Helpers

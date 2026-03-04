@@ -168,6 +168,8 @@ final class AppOrchestrator {
                 if AppSettings.shared.autoCopyToClipboard {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(result.translatedText, forType: .string)
+                    popup.autoCopied = true
+                    popup.updateState(finalState, near: rect, on: currentScreen)
                 }
             } else if case .failed(let message) = finalState {
                 historyManager.recordFailure(

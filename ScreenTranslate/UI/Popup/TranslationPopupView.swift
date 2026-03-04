@@ -5,6 +5,10 @@ struct TranslationPopupView: View {
     let onCopy: (String) -> Void
     let onClose: () -> Void
     let onToggleOriginal: (Bool) -> Void
+    let autoCopied: Bool
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var didCopy = false
     @State private var showingOriginal = false
@@ -50,6 +54,14 @@ struct TranslationPopupView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(didCopy ? .green : .accentColor)
                     .keyboardShortcut("c", modifiers: .command)
+                    .onChange(of: autoCopied) { _, newValue in
+                        if newValue {
+                            didCopy = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                didCopy = false
+                            }
+                        }
+                    }
                 }
 
                 Button(L10n.close) {
@@ -61,10 +73,10 @@ struct TranslationPopupView: View {
         }
         .padding(16)
         .frame(minWidth: 280, maxWidth: 480)
-        .background(.regularMaterial)
+        .background(reduceTransparency ? AnyShapeStyle(Color(nsColor: .windowBackgroundColor)) : AnyShapeStyle(.regularMaterial))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 12, y: 4)
-        .animation(.easeInOut(duration: 0.2), value: showingOriginal)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showingOriginal)
     }
 
     // MARK: - Subviews
@@ -95,6 +107,8 @@ struct TranslationPopupView: View {
                     .font(.body)
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
+                    .accessibilityLabel(L10n.translatedText)
+                    .accessibilityValue(result.translatedText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 300)

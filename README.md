@@ -1,16 +1,16 @@
 <div align="center">
 
-<img src="website/assets/logo.png" alt="ScreenTranslate" width="128" height="128">
+<img src="https://screentranslate.filient.ai/assets/logo.png" alt="ScreenTranslate" width="128" height="128">
 
 # ScreenTranslate
 
 **Translate any text on your Mac screen — just drag to select.**
 
-Powered by Apple Vision OCR and Apple Translation. Entirely on-device.
+Powered by Apple Vision OCR. On-device by default, with optional cloud engines.
 
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-blue)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-orange)](https://swift.org)
-[![License](https://img.shields.io/badge/license-MIT-green)](#license)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](#license)
 
 [Download](https://screentranslate.filient.ai/) · [Website](https://screentranslate.filient.ai/)
 
@@ -28,10 +28,12 @@ That's it. No copy-paste, no browser tabs, no context switching.
 
 ## Features
 
-- **Completely Private** — All processing happens on your Mac. No servers, no tracking, no data collection
+- **Completely Private** — On-device by default. No servers, no tracking, no data collection
 - **Instant Translation** — One shortcut triggers area selection, OCR, and translation in a single motion
 - **18 Languages** — Korean, English, Japanese, Chinese, and 14 more. Auto-detect source language supported
 - **Works Offline** — Download language packs once, translate anywhere without internet
+- **BYOK Cloud Engines** — Bring your own API key for DeepL, Google Cloud Translation, or Microsoft Azure Translator
+- **Auto Copy** — Translation results are automatically copied to clipboard
 - **Translation History** — Every translation is saved. Search and copy previous results anytime
 - **Menu Bar App** — Lightweight, always available, never in the way
 
@@ -77,11 +79,11 @@ Open Settings from the menu bar icon to:
 |-----------|-----------|
 | UI | SwiftUI + AppKit |
 | OCR | Apple Vision |
-| Translation | Apple Translation (on-device) |
+| Translation | Apple Translation (on-device), DeepL, Google, Azure |
 | Data | SwiftData |
 | Updates | Sparkle |
 | Architecture | @Observable, MainActor isolation |
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.

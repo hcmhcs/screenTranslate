@@ -7,63 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-03-04
+
+### Added
+
+- OCR paragraph break detection (preserves paragraph structure in multi-paragraph text)
+
+### Improved
+
+- Popup UX: auto-copy feedback, drag position retention, accessibility support, precise text height measurement
+
+### Changed
+
+- License changed from MIT to GPL v3
+- Updated README with BYOK engine info and revised project description
+- Removed unnecessary files from git tracking (website, local scripts)
+- Public CHANGELOG converted to English
+
 ## [1.2.0] - 2026-03-04
 
 ### Added
-- 번역 완료 시 자동 클립보드 복사 기능 (설정에서 ON/OFF 가능, 기본값 ON)
-- 첫 실행 온보딩 (단축키 설정 + 언어팩 다운로드 2단계)
-- BYOK 번역 엔진 지원 (DeepL, Google Cloud Translation, Microsoft Azure Translator)
-- OCR 텍스트 전처리 기능 (줄바꿈 → 자연스러운 문장 병합)
-- 웹사이트 번역 엔진 실시간 비교 섹션
-- 웹사이트 번역 엔진 설명 페이지 추가
+
+- Auto-copy translation to clipboard (configurable, enabled by default)
+- First-launch onboarding (shortcut setup + language pack download)
+- BYOK translation engines (DeepL, Google Cloud Translation, Microsoft Azure Translator)
+- OCR text preprocessing (line break merging for natural sentence flow)
 
 ### Improved
-- "Copied" 피드백 표시 시간 단축 (1.5초 → 0.5초)
-- DeepL 번역 품질 개선 (split_sentences nonewlines 파라미터 적용)
-- 웹사이트 CSS/JS 캐시 버스팅 추가
+
+- Reduced "Copied" feedback duration (1.5s → 0.5s)
+- Improved DeepL translation quality (split_sentences nonewlines parameter)
 
 ### Fixed
-- 윈도우가 다른 앱 위로 올라오지 않는 문제 수정
-- Sparkle 업데이트 판단 오류 수정 (CFBundleVersion 불일치)
-- API 키 에러 메시지 개선
+
+- Popup window not appearing above other apps
+- Sparkle update check error (CFBundleVersion mismatch)
+- Improved API key error messages
 
 ## [1.1.1] - 2026-03-04
 
 ### Added
-- 웹사이트 인터랙티브 데모 섹션 (드래그 번역 체험)
-- About 화면 및 웹사이트 푸터에 연락처 이메일 추가
-- README.md 추가
+
+- Contact email in About window
+- README.md
 
 ### Fixed
-- DMG 설치 파일에 불필요한 파일 포함되는 문제 수정 (DistributionSummary.plist, ExportOptions.plist, Packaging.log)
-- 설정 화면 OCR/번역 엔진 이름 i18n 처리 (로컬/Local)
+
+- Unnecessary files included in DMG (DistributionSummary.plist, ExportOptions.plist, Packaging.log)
+- OCR/translation engine name i18n in Settings
 
 ## [1.1.0] - 2026-03-03
 
 ### Added
-- TelemetryDeck SDK 통합 (프라이버시 중심 사용자 분석)
-  - `appLaunched` 시그널 (DAU/MAU 산출)
-  - `translationCompleted` 시그널 (기능 사용률)
-- Google Analytics 4 다운로드 클릭 이벤트 추적
-- 웹사이트 SEO 최적화 (Open Graph, Twitter Card, JSON-LD, sitemap.xml)
-- 웹사이트 GEO 최적화 (llms.txt, llms-full.txt — AI 검색 엔진 대응)
-- CI에서 latest DMG 자동 복사 (안정적 다운로드 URL)
+
+- TelemetryDeck SDK integration (privacy-first analytics)
+  - `appLaunched` signal (DAU/MAU tracking)
+  - `translationCompleted` signal (feature usage)
+- Auto-copy latest DMG in CI (stable download URL)
 
 ### Fixed
-- CI archive 서명 오류 수정 (API Key 인증 플래그 추가)
-- Xcode 16.4 동시성 에러 수정 (AppOrchestrator @MainActor 추가)
+
+- CI archive signing error (added API Key authentication flags)
+- Xcode 16.4 concurrency error (added @MainActor to AppOrchestrator)
 
 ## [1.0.0] - 2026-03-03
 
 ### Added
-- Update check button disabled state in menu bar and About window (canCheckForUpdates binding)
+
+- Update check button disabled state in menu bar and About window
 - Release notes display in Sparkle update dialog
-- Landing page website (EN/KO i18n, Docker deployment)
-- Website deployment script and documentation
 
 ## [0.0.1] - 2026-03-03
 
 ### Added
+
 - Screen capture with region selection overlay
 - OCR text recognition (Apple Vision)
 - Translation pipeline (Apple Translation, on-device)
@@ -81,11 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Check for Updates menu item (Sparkle)
 - Sparkle auto-update framework integration
 - DMG distribution with code signing and notarization
-- Oracle Cloud Object Storage for update hosting
 - GitHub Actions CI/CD pipeline
-- Local release script with interactive prompts
 
 ### Fixed
+
 - Drag not working after keyboard shortcut
 - Continuous translation stopping unexpectedly
 - Popup flickering on repeated translations

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Sparkle appcast.xml 갱신 스크립트.
+Update Sparkle appcast.xml on Oracle Cloud Object Storage.
 
-Oracle Cloud Object Storage에서 기존 appcast.xml을 다운로드하고,
-새 릴리즈 항목을 추가한 뒤 다시 업로드한다.
+Downloads existing appcast.xml, adds a new release item, and re-uploads.
 
-사용법:
+Usage:
   python scripts/update_appcast.py \
     --version 1.0.0 \
     --url "https://.../.../ScreenTranslate-1.0.0.zip" \
@@ -24,7 +23,6 @@ import boto3
 
 APP_NAME = "ScreenTranslate"
 
-# Sparkle XML 네임스페이스
 SPARKLE_NS = "http://www.andymatuschak.net/xml-namespaces/sparkle"
 DC_NS = "http://purl.org/dc/elements/1.1/"
 
@@ -43,7 +41,6 @@ def get_s3_client():
 
 
 def download_appcast(s3, bucket: str) -> str | None:
-    """기존 appcast.xml 다운로드. 없으면 None 반환."""
     try:
         response = s3.get_object(Bucket=bucket, Key="appcast.xml")
         return response["Body"].read().decode("utf-8")
@@ -54,7 +51,6 @@ def download_appcast(s3, bucket: str) -> str | None:
 
 
 def create_empty_appcast() -> str:
-    """빈 appcast.xml 생성."""
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0"
      xmlns:sparkle="{SPARKLE_NS}"
@@ -77,11 +73,10 @@ def add_item(
     signature: str,
     description: str = "",
 ) -> str:
-    """appcast.xml에 새 릴리즈 항목 추가."""
     root = ET.fromstring(xml_str)
     channel = root.find("channel")
 
-    # 중복 버전 체크 — 이미 존재하면 제거 후 재추가
+    # Remove duplicate version if exists
     for item in channel.findall("item"):
         enclosure = item.find("enclosure")
         if enclosure is not None:
@@ -89,7 +84,6 @@ def add_item(
             if existing_ver == version:
                 channel.remove(item)
 
-    # 새 item 생성
     item = ET.SubElement(channel, "item")
 
     title = ET.SubElement(item, "title")
@@ -109,7 +103,6 @@ def add_item(
     min_os = ET.SubElement(item, f"{{{SPARKLE_NS}}}minimumSystemVersion")
     min_os.text = "15.0"
 
-    # 릴리즈 노트 (영어, 선택사항)
     if description:
         desc = ET.SubElement(item, "description")
         desc.text = description
@@ -122,14 +115,12 @@ def add_item(
     enclosure.set(f"{{{SPARKLE_NS}}}version", version)
     enclosure.set(f"{{{SPARKLE_NS}}}shortVersionString", version)
 
-    # XML 문자열로 변환
     ET.indent(root, space="  ")
     xml_declaration = '<?xml version="1.0" encoding="utf-8"?>\n'
     return xml_declaration + ET.tostring(root, encoding="unicode")
 
 
 def upload_appcast(s3, bucket: str, xml_str: str):
-    """appcast.xml을 Oracle Cloud에 업로드."""
     s3.put_object(
         Bucket=bucket,
         Key="appcast.xml",
@@ -145,13 +136,12 @@ def main():
     parser.add_argument("--size", required=True, type=int)
     parser.add_argument("--checksum", required=True)
     parser.add_argument("--signature", required=True)
-    parser.add_argument("--description", default="", help="Release notes (English)")
+    parser.add_argument("--description", default="", help="Release notes")
     args = parser.parse_args()
 
     bucket = os.environ["STORAGE_BUCKET"]
     s3 = get_s3_client()
 
-    # 기존 appcast 다운로드 또는 새로 생성
     xml_str = download_appcast(s3, bucket)
     if xml_str is None:
         print("No existing appcast.xml found, creating new one.")
@@ -159,7 +149,6 @@ def main():
     else:
         print("Downloaded existing appcast.xml")
 
-    # 새 항목 추가
     xml_str = add_item(
         xml_str,
         version=args.version,
@@ -170,7 +159,6 @@ def main():
         description=args.description,
     )
 
-    # 업로드
     upload_appcast(s3, bucket, xml_str)
     print(f"Updated appcast.xml with version {args.version}")
 
