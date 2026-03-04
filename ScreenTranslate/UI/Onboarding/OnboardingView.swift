@@ -1,3 +1,4 @@
+import CoreGraphics
 import KeyboardShortcuts
 import SwiftUI
 import Translation
@@ -8,9 +9,10 @@ struct OnboardingView: View {
     @State private var selectedTargetCode: String = AppSettings.shared.targetLanguageCode
     @State private var isDownloading = false
     @State private var downloadCompleted = false
+    var permissionChecker: PermissionChecking = SystemPermissionChecker()
     var onComplete: () -> Void
 
-    private let totalSteps = 2
+    private let totalSteps = 3
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,9 +23,12 @@ struct OnboardingView: View {
 
             // Content
             Group {
-                if currentStep == 0 {
+                switch currentStep {
+                case 0:
+                    permissionStep
+                case 1:
                     shortcutStep
-                } else {
+                default:
                     languagePackStep
                 }
             }
@@ -34,7 +39,13 @@ struct OnboardingView: View {
                 .padding(.horizontal, 32)
                 .padding(.bottom, 24)
         }
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 420)
+        .onAppear {
+            // 권한이 이미 있으면 Step 1(권한)을 건너뛰고 Step 2(단축키)로 이동
+            if permissionChecker.hasScreenCapturePermission() {
+                currentStep = 1
+            }
+        }
         .task {
             await packManager.refreshAllStatuses()
         }
@@ -53,16 +64,62 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Step 1: Shortcut
+    // MARK: - Step 1: Permission
 
-    private var shortcutStep: some View {
-        VStack(spacing: 20) {
+    private var permissionStep: some View {
+        VStack(spacing: 16) {
             Text(L10n.onboardingWelcome)
                 .font(.title2)
                 .fontWeight(.bold)
 
+            Image(systemName: "rectangle.dashed.badge.record")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+
+            Text(L10n.onboardingPermDesc)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            // 프라이버시 보장 항목
+            VStack(alignment: .leading, spacing: 6) {
+                privacyItem(L10n.onboardingPermPrivacy1)
+                privacyItem(L10n.onboardingPermPrivacy2)
+                privacyItem(L10n.onboardingPermPrivacy3)
+            }
+
+            // 시스템 설정 열기 버튼
+            Button(L10n.openSystemSettings) {
+                UserDefaults.standard.synchronize()
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+
+            // 재시작 안내
+            Text(L10n.onboardingPermRestart)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 32)
+    }
+
+    private func privacyItem(_ text: String) -> some View {
+        Label(text, systemImage: "checkmark.circle.fill")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+    }
+
+    // MARK: - Step 2: Shortcut
+
+    private var shortcutStep: some View {
+        VStack(spacing: 20) {
             Text(L10n.onboardingShortcutTitle)
-                .font(.headline)
+                .font(.title2)
+                .fontWeight(.bold)
 
             Text(L10n.onboardingShortcutDesc)
                 .font(.callout)
@@ -109,7 +166,7 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Step 2: Language Pack
+    // MARK: - Step 3: Language Pack
 
     private var languagePackStep: some View {
         VStack(spacing: 20) {
@@ -182,15 +239,9 @@ struct OnboardingView: View {
                     .foregroundStyle(.green)
                     .font(.callout)
             } else if status == .available {
-                VStack(spacing: 8) {
-                    Label(L10n.onboardingLangNotInstalled, systemImage: "arrow.down.circle")
-                        .foregroundStyle(.orange)
-                        .font(.callout)
-                    Button(L10n.download) {
-                        downloadLanguagePack()
-                    }
-                    .controlSize(.regular)
-                }
+                Label(L10n.onboardingLangNotInstalled, systemImage: "arrow.down.circle")
+                    .foregroundStyle(.orange)
+                    .font(.callout)
             } else {
                 // unsupported 또는 아직 로딩 중
                 ProgressView()
@@ -215,21 +266,48 @@ struct OnboardingView: View {
             Spacer()
 
             if currentStep < totalSteps - 1 {
+                // Step 1, 2: "다음" 버튼만
                 Button(L10n.onboardingNext) {
                     currentStep += 1
                 }
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
             } else {
-                Button(L10n.onboardingSkip) {
+                // Step 3 (마지막): 언어팩 상태에 따라 분기
+                lastStepButtons
+            }
+        }
+    }
+
+    /// Step 3(언어팩) 마지막 스텝의 버튼. 언어팩 설치 상태에 따라 분기한다.
+    private var lastStepButtons: some View {
+        Group {
+            let status = packManager.languageStatuses[selectedTargetCode]
+            if isDownloading {
+                // 다운로드 중: 버튼 비활성
+                Button(L10n.onboardingDone) {
+                    finishOnboarding()
+                }
+                .controlSize(.large)
+                .disabled(true)
+            } else if status == .installed || downloadCompleted {
+                // 설치됨: "시작하기" 단일 버튼
+                Button(L10n.onboardingDone) {
+                    finishOnboarding()
+                }
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+            } else {
+                // 미설치: "나중에 다운로드" + "다운로드"
+                Button(L10n.onboardingDownloadLater) {
                     finishOnboarding()
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .controlSize(.large)
 
-                Button(L10n.onboardingDone) {
-                    finishOnboarding()
+                Button(L10n.download) {
+                    downloadLanguagePack()
                 }
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)

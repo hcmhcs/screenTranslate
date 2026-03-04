@@ -23,13 +23,13 @@ final class TranslationCoordinatorTests: XCTestCase {
         mockTranslation.translatedText = "안녕하세요"
 
         sut.startProcessing(image: makeBlankImage())
-        try? await Task.sleep(for: .milliseconds(100))
+        let state = await waitForTerminalState(sut)
 
-        if case .completed(let result) = sut.state {
+        if case .completed(let result) = state {
             XCTAssertEqual(result.translatedText, "안녕하세요")
             XCTAssertFalse(result.lowConfidence)
         } else {
-            XCTFail("completed 상태여야 한다: \(sut.state)")
+            XCTFail("completed 상태여야 한다: \(state)")
         }
     }
 
@@ -39,12 +39,12 @@ final class TranslationCoordinatorTests: XCTestCase {
         mockTranslation.translatedText = "안녕하세요"
 
         sut.startProcessing(image: makeBlankImage())
-        try? await Task.sleep(for: .milliseconds(100))
+        let state = await waitForTerminalState(sut)
 
-        if case .completed(let result) = sut.state {
+        if case .completed(let result) = state {
             XCTAssertTrue(result.lowConfidence)
         } else {
-            XCTFail("completed 상태여야 한다")
+            XCTFail("completed 상태여야 한다: \(state)")
         }
     }
 
@@ -52,12 +52,12 @@ final class TranslationCoordinatorTests: XCTestCase {
         mockOCR.shouldFail = true
 
         sut.startProcessing(image: makeBlankImage())
-        try? await Task.sleep(for: .milliseconds(100))
+        let state = await waitForTerminalState(sut)
 
-        if case .failed(let msg) = sut.state {
-            XCTAssertTrue(msg.contains("텍스트를 찾을 수 없습니다"))
+        if case .failed(let msg) = state {
+            XCTAssertEqual(msg, L10n.noTextFound)
         } else {
-            XCTFail("실패 상태여야 한다: \(sut.state)")
+            XCTFail("실패 상태여야 한다: \(state)")
         }
     }
 
@@ -66,12 +66,12 @@ final class TranslationCoordinatorTests: XCTestCase {
         mockTranslation.shouldFail = true
 
         sut.startProcessing(image: makeBlankImage())
-        try? await Task.sleep(for: .milliseconds(100))
+        let state = await waitForTerminalState(sut)
 
-        if case .failed = sut.state {
+        if case .failed = state {
             // Expected
         } else {
-            XCTFail("실패 상태여야 한다: \(sut.state)")
+            XCTFail("실패 상태여야 한다: \(state)")
         }
     }
 
@@ -79,7 +79,7 @@ final class TranslationCoordinatorTests: XCTestCase {
         mockOCR.recognizedText = "Hello"
         mockTranslation.translatedText = "안녕"
         sut.startProcessing(image: makeBlankImage())
-        try? await Task.sleep(for: .milliseconds(100))
+        _ = await waitForTerminalState(sut)
 
         sut.reset()
 
@@ -92,10 +92,8 @@ final class TranslationCoordinatorTests: XCTestCase {
         mockTranslation.translatedText = "안녕"
 
         sut.startProcessing(image: makeBlankImage())
-        try? await Task.sleep(for: .milliseconds(100))
+        _ = await waitForTerminalState(sut)
 
-        // MockTranslationProvider는 lastReceivedText만 추적하므로
-        // detectedLanguage 전달은 빌드 시 타입 체크로 보장
         XCTAssertEqual(mockTranslation.lastReceivedText, "Hello")
     }
 
@@ -166,11 +164,11 @@ final class TranslationCoordinatorTests: XCTestCase {
 
     // MARK: - Helpers
 
+    private func waitForTerminalState(_ coordinator: TranslationCoordinator) async -> TranslationCoordinator.State {
+        await TestHelpers.waitForTerminalState(coordinator)
+    }
+
     private func makeBlankImage() -> CGImage {
-        let context = CGContext(data: nil, width: 10, height: 10,
-                                bitsPerComponent: 8, bytesPerRow: 0,
-                                space: CGColorSpaceCreateDeviceRGB(),
-                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        return context.makeImage()!
+        TestHelpers.makeBlankImage()
     }
 }
