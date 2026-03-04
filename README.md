@@ -14,6 +14,19 @@ Powered by Apple Vision OCR. On-device by default, with optional cloud engines.
 
 [Download](https://screentranslate.filient.ai/) · [Website](https://screentranslate.filient.ai/)
 
+<table>
+<tr>
+<td align="center"><img src="https://screentranslate.filient.ai/assets/area-selection.png" alt="Drag to select" width="400"></td>
+<td align="center"><b>→</b></td>
+<td align="center"><img src="https://screentranslate.filient.ai/assets/translation-result-2.png" alt="Translation result" width="400"></td>
+</tr>
+<tr>
+<td align="center"><b>Drag to select</b></td>
+<td></td>
+<td align="center"><b>Translation result</b></td>
+</tr>
+</table>
+
 </div>
 
 ---
