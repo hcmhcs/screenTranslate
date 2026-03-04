@@ -242,7 +242,7 @@ final class AppOrchestrator {
         guard !AppSettings.shared.hasCompletedOnboarding else { return }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 420),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -258,7 +258,7 @@ final class AppOrchestrator {
         }
         window.contentView = NSHostingView(rootView: onboardingView)
 
-        // X 버튼으로 닫을 때도 완료 처리
+        // X 버튼으로 닫으면 온보딩 미완료 → 다음 실행 시 재표시
         window.delegate = OnboardingWindowDelegate.shared
 
         window.makeKeyAndOrderFront(nil)
@@ -352,12 +352,14 @@ final class AppOrchestrator {
     }
 }
 
-/// 온보딩 윈도우의 X 버튼 클릭 시 완료 처리
+/// 온보딩 윈도우의 X 버튼 클릭 시 — 온보딩 미완료 상태 유지.
+/// 다음 앱 실행 시 온보딩이 다시 표시된다.
+/// "시작하기" 또는 "나중에 다운로드"로 완료한 경우만 hasCompletedOnboarding = true.
 @MainActor
 final class OnboardingWindowDelegate: NSObject, NSWindowDelegate {
     static let shared = OnboardingWindowDelegate()
 
     func windowWillClose(_ notification: Notification) {
-        AppSettings.shared.hasCompletedOnboarding = true
+        // 의도적으로 비워둠: X 버튼 닫기 시 온보딩 미완료
     }
 }

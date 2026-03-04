@@ -123,7 +123,31 @@ nonisolated enum L10n {
     static var onboardingLangNotInstalled: String { s("Language pack not installed", ko: "언어팩 미설치") }
     static var onboardingNext: String { s("Next", ko: "다음") }
     static var onboardingDone: String { s("Get Started", ko: "시작하기") }
-    static var onboardingSkip: String { s("Skip", ko: "건너뛰기") }
+    // Onboarding Permission Step
+    static var onboardingPermDesc: String {
+        s("ScreenTranslate needs screen recording permission to read text on your screen.",
+          ko: "화면의 텍스트를 읽기 위해 화면 기록 권한이 필요합니다.")
+    }
+    static var onboardingPermPrivacy1: String {
+        s("Used only for text recognition",
+          ko: "텍스트 인식에만 사용")
+    }
+    static var onboardingPermPrivacy2: String {
+        s("No recording, saving, or sending",
+          ko: "녹화·저장·전송 없음")
+    }
+    static var onboardingPermPrivacy3: String {
+        s("All processing stays on your device",
+          ko: "모든 처리는 기기 내에서 수행")
+    }
+    static var onboardingPermRestart: String {
+        s("The app will restart automatically after granting permission.",
+          ko: "권한 허용 후 앱이 자동으로 다시 시작됩니다.")
+    }
+    static var onboardingDownloadLater: String {
+        s("Download Later",
+          ko: "나중에 다운로드")
+    }
 
     // MARK: - Errors
 
