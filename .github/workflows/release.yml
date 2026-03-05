@@ -287,14 +287,16 @@ jobs:
         AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
       run: |
         pip install boto3
-        # CHANGELOG.md에서 릴리즈 노트 추출
-        RELEASE_NOTES=$(./scripts/extract_changelog.sh "${{ steps.version.outputs.VERSION }}" 2>/dev/null || echo "")
+        # CHANGELOG.md에서 Highlights만 추출 (Sparkle 업데이트 창용)
+        RELEASE_NOTES=$(./scripts/extract_changelog.sh "${{ steps.version.outputs.VERSION }}" --highlights 2>/dev/null || echo "")
+        RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.VERSION }}"
         python scripts/update_appcast.py \
           --version "${{ steps.version.outputs.VERSION }}" \
           --url "${{ secrets.STORAGE_BASE_URL }}/releases/${{ steps.version.outputs.VERSION }}/ScreenTranslate-${{ steps.version.outputs.VERSION }}.zip" \
           --size "${{ steps.fileinfo.outputs.FILE_SIZE }}" \
           --checksum "${{ steps.fileinfo.outputs.SHA256 }}" \
           --signature "${{ steps.signature.outputs.ED_SIGNATURE }}" \
+          --release-url "$RELEASE_URL" \
           ${RELEASE_NOTES:+--description "$RELEASE_NOTES"}
 
     # 17. CHANGELOG에서 릴리즈 노트 추출

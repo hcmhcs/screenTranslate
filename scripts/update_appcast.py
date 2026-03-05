@@ -3,6 +3,7 @@
 Update Sparkle appcast.xml on Oracle Cloud Object Storage.
 
 Downloads existing appcast.xml, adds a new release item, and re-uploads.
+Release notes are converted from Markdown to HTML and wrapped in CDATA.
 
 Usage:
   python scripts/update_appcast.py \
@@ -11,10 +12,12 @@ Usage:
     --size 12345678 \
     --checksum "sha256hash" \
     --signature "edSignature" \
-    --description "Bug fixes and improvements"
+    --description "### Added\n- New feature" \
+    --release-url "https://github.com/.../releases/tag/v1.0.0"
 """
 
 import argparse
+import html
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -64,6 +67,52 @@ def create_empty_appcast() -> str:
 </rss>"""
 
 
+CDATA_PLACEHOLDER = "__CDATA_PLACEHOLDER__"
+
+
+def changelog_to_html(markdown: str, release_url: str = "") -> str:
+    """CHANGELOG.md에서 추출한 Markdown을 Sparkle용 간단한 HTML로 변환한다."""
+    lines = markdown.strip().split("\n")
+    html_parts: list[str] = []
+    in_list = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            if in_list:
+                html_parts.append("</ul>")
+                in_list = False
+            continue
+
+        if stripped.startswith("### "):
+            if in_list:
+                html_parts.append("</ul>")
+                in_list = False
+            heading = html.escape(stripped[4:])
+            html_parts.append(f"<h3>{heading}</h3>")
+        elif stripped.startswith("- "):
+            if not in_list:
+                html_parts.append("<ul>")
+                in_list = True
+            item_text = html.escape(stripped[2:])
+            html_parts.append(f"  <li>{item_text}</li>")
+        else:
+            if in_list:
+                html_parts.append("</ul>")
+                in_list = False
+            html_parts.append(f"<p>{html.escape(stripped)}</p>")
+
+    if in_list:
+        html_parts.append("</ul>")
+
+    if release_url:
+        html_parts.append(
+            f'<p><a href="{html.escape(release_url)}">Full release notes on GitHub →</a></p>'
+        )
+
+    return "\n".join(html_parts)
+
+
 def add_item(
     xml_str: str,
     version: str,
@@ -72,6 +121,7 @@ def add_item(
     checksum: str,
     signature: str,
     description: str = "",
+    release_url: str = "",
 ) -> str:
     root = ET.fromstring(xml_str)
     channel = root.find("channel")
@@ -103,9 +153,22 @@ def add_item(
     min_os = ET.SubElement(item, f"{{{SPARKLE_NS}}}minimumSystemVersion")
     min_os.text = "15.0"
 
+    # HTML 릴리즈 노트 (CDATA) — 직렬화 후 치환
+    html_content = None
     if description:
+        html_content = changelog_to_html(description, release_url)
         desc = ET.SubElement(item, "description")
-        desc.text = description
+        desc.text = CDATA_PLACEHOLDER
+    elif release_url:
+        # description 없이 release_url만 있으면 링크만 표시
+        html_content = changelog_to_html("", release_url)
+        desc = ET.SubElement(item, "description")
+        desc.text = CDATA_PLACEHOLDER
+
+    # GitHub 전체 릴리즈 노트 링크 (Sparkle "Full Release Notes" 버튼)
+    if release_url:
+        full_notes = ET.SubElement(item, f"{{{SPARKLE_NS}}}fullReleaseNotesLink")
+        full_notes.text = release_url
 
     enclosure = ET.SubElement(item, "enclosure")
     enclosure.set("url", url)
@@ -117,7 +180,16 @@ def add_item(
 
     ET.indent(root, space="  ")
     xml_declaration = '<?xml version="1.0" encoding="utf-8"?>\n'
-    return xml_declaration + ET.tostring(root, encoding="unicode")
+    result = xml_declaration + ET.tostring(root, encoding="unicode")
+
+    # CDATA 치환 — ET는 CDATA를 지원하지 않으므로 직렬화 후 수동 교체
+    if html_content:
+        result = result.replace(
+            f"<description>{CDATA_PLACEHOLDER}</description>",
+            f"<description><![CDATA[\n{html_content}\n]]></description>",
+        )
+
+    return result
 
 
 def upload_appcast(s3, bucket: str, xml_str: str):
@@ -136,7 +208,8 @@ def main():
     parser.add_argument("--size", required=True, type=int)
     parser.add_argument("--checksum", required=True)
     parser.add_argument("--signature", required=True)
-    parser.add_argument("--description", default="", help="Release notes")
+    parser.add_argument("--description", default="", help="Release notes (Markdown)")
+    parser.add_argument("--release-url", default="", help="GitHub release URL")
     args = parser.parse_args()
 
     bucket = os.environ["STORAGE_BUCKET"]
@@ -157,6 +230,7 @@ def main():
         checksum=args.checksum,
         signature=args.signature,
         description=args.description,
+        release_url=args.release_url,
     )
 
     upload_appcast(s3, bucket, xml_str)
