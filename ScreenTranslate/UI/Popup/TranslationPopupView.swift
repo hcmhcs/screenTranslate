@@ -14,69 +14,92 @@ struct TranslationPopupView: View {
     @State private var showingOriginal = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            switch state {
-            case .idle:
-                EmptyView()
+        ZStack(alignment: .bottomTrailing) {
+            VStack(alignment: .leading, spacing: 12) {
+                switch state {
+                case .idle:
+                    EmptyView()
 
-            case .recognizing:
-                loadingView(message: L10n.recognizing)
+                case .recognizing:
+                    loadingView(message: L10n.recognizing)
 
-            case .translating:
-                loadingView(message: L10n.translating)
+                case .translating:
+                    loadingView(message: L10n.translating)
 
-            case .completed(let result):
-                completedView(result: result)
+                case .completed(let result):
+                    completedView(result: result)
 
-            case .failed(let message):
-                errorView(message: message)
-            }
-
-            HStack {
-                if case .completed = state {
-                    Toggle(L10n.showOriginal, isOn: $showingOriginal)
-                        .toggleStyle(.checkbox)
-                        .onChange(of: showingOriginal) { _, newValue in
-                            onToggleOriginal(newValue)
-                        }
+                case .failed(let message):
+                    errorView(message: message)
                 }
 
-                Spacer()
-
-                if case .completed(let result) = state {
-                    Button(didCopy ? L10n.copied : L10n.copy) {
-                        onCopy(result.translatedText)
-                        didCopy = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            didCopy = false
-                        }
+                HStack {
+                    if case .completed = state {
+                        Toggle(L10n.showOriginal, isOn: $showingOriginal)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: showingOriginal) { _, newValue in
+                                onToggleOriginal(newValue)
+                            }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(didCopy ? .green : .accentColor)
-                    .keyboardShortcut("c", modifiers: .command)
-                    .onChange(of: autoCopied) { _, newValue in
-                        if newValue {
+
+                    Spacer()
+
+                    if case .completed(let result) = state {
+                        Button(didCopy ? L10n.copied : L10n.copy) {
+                            onCopy(result.translatedText)
                             didCopy = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                                 didCopy = false
                             }
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(didCopy ? .green : .accentColor)
+                        .keyboardShortcut("c", modifiers: .command)
+                        .onChange(of: autoCopied) { _, newValue in
+                            if newValue {
+                                didCopy = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                    didCopy = false
+                                }
+                            }
+                        }
                     }
-                }
 
-                Button(L10n.close) {
-                    onClose()
+                    Button(L10n.close) {
+                        onClose()
+                    }
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
                 }
-                .buttonStyle(.bordered)
-                .keyboardShortcut(.cancelAction)
+            }
+            .padding(16)
+
+            // 리사이즈 그립 아이콘 (completed/failed에서만 표시)
+            if isResizableState {
+                resizeGripIcon
             }
         }
-        .padding(16)
-        .frame(minWidth: 280, maxWidth: 480)
+        .frame(minWidth: 280, maxWidth: .infinity)
         .background(reduceTransparency ? AnyShapeStyle(Color(nsColor: .windowBackgroundColor)) : AnyShapeStyle(.regularMaterial))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 12, y: 4)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showingOriginal)
+    }
+
+    // MARK: - Resize Grip
+
+    private var isResizableState: Bool {
+        switch state {
+        case .completed, .failed: return true
+        default: return false
+        }
+    }
+
+    private var resizeGripIcon: some View {
+        Image(systemName: "arrow.up.left.and.arrow.down.right")
+            .font(.system(size: 8))
+            .foregroundStyle(.tertiary)
+            .padding(6)
     }
 
     // MARK: - Subviews
@@ -111,7 +134,7 @@ struct TranslationPopupView: View {
                     .accessibilityValue(result.translatedText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: 300)
+            .frame(maxHeight: .infinity)
 
             // 원문 (토글 시)
             if showingOriginal {
@@ -138,7 +161,7 @@ struct TranslationPopupView: View {
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxHeight: 200)
+                    .frame(maxHeight: .infinity)
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }

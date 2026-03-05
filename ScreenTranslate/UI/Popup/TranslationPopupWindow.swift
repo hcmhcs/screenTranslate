@@ -45,6 +45,20 @@ final class TranslationPopupWindow: NSPanel {
     private var userDidDrag = false
     private var isUpdatingPosition = false
 
+    /// 사용자가 리사이즈했는지 여부 — 자동 크기 계산 스킵에 사용
+    var userDidResize = false
+
+    // MARK: - 리사이즈 제한 상수
+
+    let minResizeWidth: CGFloat = 280
+    let maxResizeWidth: CGFloat = 800
+    let minResizeHeight: CGFloat = 120
+    let maxResizeHeight: CGFloat = 800
+
+    /// Wrapper container — NSHostingView와 ResizeGripView를 분리
+    private var containerView: NSView?
+    private var resizeGripView: ResizeGripView?
+
     private var shouldAnimate: Bool {
         !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
@@ -54,6 +68,7 @@ final class TranslationPopupWindow: NSPanel {
         currentState = state
         isShowingOriginal = false
         userDidDrag = false
+        userDidResize = false
         autoCopied = false
         lastSelectionRect = selectionRect
         lastScreen = screen
@@ -65,8 +80,20 @@ final class TranslationPopupWindow: NSPanel {
             existing.rootView = popupView
         } else {
             let hv = NSHostingView(rootView: popupView)
-            hv.frame = CGRect(origin: .zero, size: size)
-            contentView = hv
+            hv.translatesAutoresizingMaskIntoConstraints = false
+
+            // Wrapper container: NSHostingView + ResizeGripView를 분리
+            let container = NSView(frame: CGRect(origin: .zero, size: size))
+            container.addSubview(hv)
+            NSLayoutConstraint.activate([
+                hv.topAnchor.constraint(equalTo: container.topAnchor),
+                hv.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                hv.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                hv.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            ])
+
+            contentView = container
+            containerView = container
             hostingView = hv
         }
 
@@ -76,6 +103,7 @@ final class TranslationPopupWindow: NSPanel {
         isUpdatingPosition = false
         setContentSize(size)
         makeKeyAndOrderFront(nil)
+        installResizeGrip()
     }
 
     /// H1: 상태만 업데이트 — NSHostingView.rootView 교체로 깜빡임 없이 갱신
@@ -92,6 +120,9 @@ final class TranslationPopupWindow: NSPanel {
             show(state: state, near: selectionRect, on: screen)
             return
         }
+
+        // 사용자가 리사이즈했으면 크기 변경 없이 뷰만 업데이트
+        if userDidResize { return }
 
         // 동적 크기 변경 + 애니메이션
         let newSize = calculateSize(for: state, showingOriginal: isShowingOriginal)
@@ -135,6 +166,43 @@ final class TranslationPopupWindow: NSPanel {
     /// 원문 보기 토글 시 윈도우 크기를 동적으로 재조정한다.
     private func handleToggleOriginal(_ showing: Bool) {
         isShowingOriginal = showing
+
+        if userDidResize {
+            // 현재 폭 유지, 높이는 원문 추가/제거분만 반영
+            let currentWidth = self.frame.width
+            let autoSize = calculateSize(for: currentState, showingOriginal: showing)
+            let prevAutoSize = calculateSize(for: currentState, showingOriginal: !showing)
+            let heightDiff = autoSize.height - prevAutoSize.height
+            let newHeight = max(minResizeHeight, self.frame.height + heightDiff)
+            let newSize = NSSize(width: currentWidth, height: newHeight)
+
+            // 좌상단 고정 위치 조정
+            var origin = self.frame.origin
+            origin.y -= heightDiff
+
+            // 화면 경계 클램핑
+            let screen = lastScreen ?? NSScreen.main!
+            origin.y = max(origin.y, screen.frame.minY + 8)
+
+            isUpdatingPosition = true
+            if shouldAnimate {
+                NSAnimationContext.runAnimationGroup({ context in
+                    context.duration = 0.2
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    self.animator().setFrame(
+                        NSRect(origin: origin, size: newSize),
+                        display: true
+                    )
+                }, completionHandler: { [weak self] in
+                    self?.isUpdatingPosition = false
+                })
+            } else {
+                self.setFrame(NSRect(origin: origin, size: newSize), display: true)
+                isUpdatingPosition = false
+            }
+            return
+        }
+
         let newSize = calculateSize(for: currentState, showingOriginal: showing)
 
         let newOrigin: NSPoint
@@ -173,6 +241,28 @@ final class TranslationPopupWindow: NSPanel {
             self.setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
             isUpdatingPosition = false
         }
+    }
+
+    // MARK: - 리사이즈 그립
+
+    /// ResizeGripView를 container에 설치한다.
+    private func installResizeGrip() {
+        resizeGripView?.removeFromSuperview()
+
+        guard let container = containerView else { return }
+        let gripSize: CGFloat = 16
+        let grip = ResizeGripView()
+        grip.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(grip)
+
+        NSLayoutConstraint.activate([
+            grip.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            grip.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            grip.widthAnchor.constraint(equalToConstant: gripSize),
+            grip.heightAnchor.constraint(equalToConstant: gripSize),
+        ])
+
+        resizeGripView = grip
     }
 
     // MARK: - 동적 크기 계산
@@ -263,4 +353,52 @@ final class TranslationPopupWindow: NSPanel {
     }
 
     override var canBecomeKey: Bool { true }
+}
+
+// MARK: - ResizeGripView
+
+/// 우하단 리사이즈 그립 — mouseDownCanMoveWindow = false로
+/// isMovableByWindowBackground와의 충돌을 방지한다.
+private final class ResizeGripView: NSView {
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    private var resizeStartPoint: NSPoint = .zero
+    private var resizeStartSize: NSSize = .zero
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        resizeStartPoint = NSEvent.mouseLocation
+        resizeStartSize = window.frame.size
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window = self.window as? TranslationPopupWindow else { return }
+        let current = NSEvent.mouseLocation
+        let deltaX = current.x - resizeStartPoint.x
+        let deltaY = resizeStartPoint.y - current.y  // 아래로 드래그 = 높이 증가
+
+        let newWidth = max(window.minResizeWidth, min(resizeStartSize.width + deltaX, window.maxResizeWidth))
+        let newHeight = max(window.minResizeHeight, min(resizeStartSize.height + deltaY, window.maxResizeHeight))
+
+        // 좌상단 고정 리사이즈 (AppKit 좌하단 원점이므로 origin.y 조정)
+        var newFrame = window.frame
+        let heightDiff = newHeight - newFrame.height
+        newFrame.size = NSSize(width: newWidth, height: newHeight)
+        newFrame.origin.y -= heightDiff
+
+        // 화면 경계 클램핑
+        if let screen = window.screen {
+            newFrame.origin.y = max(newFrame.origin.y, screen.frame.minY + 8)
+            if newFrame.origin.x + newFrame.width > screen.frame.maxX - 8 {
+                newFrame.size.width = screen.frame.maxX - 8 - newFrame.origin.x
+            }
+        }
+
+        window.setFrame(newFrame, display: true)
+        window.userDidResize = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        // 드래그 종료
+    }
 }
