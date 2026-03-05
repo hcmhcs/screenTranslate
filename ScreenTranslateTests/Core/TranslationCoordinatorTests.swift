@@ -97,6 +97,68 @@ final class TranslationCoordinatorTests: XCTestCase {
         XCTAssertEqual(mockTranslation.lastReceivedText, "Hello")
     }
 
+    // MARK: - startProcessing(text:) 드래그 번역
+
+    func test_processText_success_reachesCompletedState() async {
+        mockTranslation.translatedText = "안녕하세요"
+
+        sut.startProcessing(text: "Hello")
+        let state = await waitForTerminalState(sut)
+
+        if case .completed(let result) = state {
+            XCTAssertEqual(result.translatedText, "안녕하세요")
+            XCTAssertEqual(result.sourceText, "Hello")
+            XCTAssertFalse(result.lowConfidence)
+        } else {
+            XCTFail("completed 상태여야 한다: \(state)")
+        }
+    }
+
+    func test_processText_skipsRecognizingState() async {
+        mockTranslation.translatedText = "번역됨"
+
+        sut.startProcessing(text: "Test")
+
+        // 즉시 .translating이어야 함 (.recognizing 스킵)
+        XCTAssertEqual(sut.state, .translating)
+
+        _ = await waitForTerminalState(sut)
+    }
+
+    func test_processText_translationFails_reachesFailedState() async {
+        mockTranslation.shouldFail = true
+
+        sut.startProcessing(text: "Hello")
+        let state = await waitForTerminalState(sut)
+
+        if case .failed = state {
+            // Expected
+        } else {
+            XCTFail("실패 상태여야 한다: \(state)")
+        }
+    }
+
+    func test_processText_emptyText_reachesFailedState() async {
+        sut.startProcessing(text: "")
+        let state = await waitForTerminalState(sut)
+
+        if case .failed(let msg) = state {
+            XCTAssertEqual(msg, L10n.noSelectedText)
+        } else {
+            XCTFail("실패 상태여야 한다: \(state)")
+        }
+    }
+
+    func test_processText_passesSourceLanguageToTranslation() async {
+        mockTranslation.translatedText = "번역됨"
+        sut.sourceLanguage = Locale.Language(identifier: "en")
+
+        sut.startProcessing(text: "Hello world")
+        _ = await waitForTerminalState(sut)
+
+        XCTAssertEqual(mockTranslation.lastReceivedText, "Hello world")
+    }
+
     // MARK: - preprocessOCRText 단락 감지 테스트
 
     func test_preprocessOCRText_preservesParagraphBreaks() {

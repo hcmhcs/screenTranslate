@@ -4,9 +4,9 @@
 
 # ScreenTranslate
 
-**Translate any text on your Mac screen — just drag to select.**
+**Translate any text on your Mac screen — capture or select.**
 
-Powered by Apple Vision OCR. On-device by default, with optional cloud engines.
+Screen capture with OCR, or select text and translate directly. On-device by default, with optional cloud engines.
 
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-blue)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-orange)](https://swift.org)
@@ -35,17 +35,26 @@ Powered by Apple Vision OCR. On-device by default, with optional cloud engines.
 
 ## How It Works
 
+### Screen Capture Translation
+
 1. **Press shortcut** — Hit `Cmd + Shift + T` (customizable) to enter selection mode
 2. **Drag to select** — Draw a rectangle around the text you want to translate
 3. **Read translation** — Translation appears in a popup near your selection
 
-That's it. No copy-paste, no browser tabs, no context switching.
+### Text Selection Translation
+
+1. **Select text** — Highlight text in any app
+2. **Press shortcut** — Hit `Cmd + Option + Z` (customizable) to translate
+3. **Read translation** — Translation appears instantly — no OCR needed
+
+No copy-paste, no browser tabs, no context switching.
 
 ## Features
 
 - **Free & Open Source** — No subscription, no ads, no hidden costs. Licensed under GPL-3.0
 - **Completely Private** — On-device by default. No servers, no tracking, no data collection
 - **Instant Translation** — One shortcut triggers area selection, OCR, and translation in a single motion
+- **Text Selection Translation** — Select text in any app and translate directly — no OCR needed. Supports even more languages with cloud engines
 - **20 Languages** — Auto-detect source language supported. Full list below
 - **Works Offline** — Download language packs once, translate anywhere without internet
 - **Optional Cloud Engines (BYOK)** — Already works without any API key. Optionally connect DeepL, Google Cloud, or Azure for more languages
@@ -91,8 +100,9 @@ Build and run with Xcode 16+.
 
 1. Launch ScreenTranslate — it appears in your **menu bar**
 2. Grant **Screen Recording** permission when prompted (System Settings → Privacy & Security)
-3. Press `Cmd + Shift + T` and drag over any text on screen
-4. The translation popup appears instantly
+3. Grant **Accessibility** permission for text selection translation (System Settings → Privacy & Security)
+4. Press `Cmd + Shift + T` and drag over any text on screen — or select text and press `Cmd + Option + Z`
+5. The translation popup appears instantly
 
 ### Changing Languages
 

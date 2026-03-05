@@ -4,6 +4,7 @@ import TelemetryDeck
 
 extension KeyboardShortcuts.Name {
     static let translate = Self("translate", default: .init(.t, modifiers: [.command, .shift]))
+    static let dragTranslate = Self("dragTranslate", default: .init(.z, modifiers: [.command, .option]))
 }
 
 @main

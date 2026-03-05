@@ -115,6 +115,46 @@ final class TranslationCoordinator {
         }
     }
 
+    /// 텍스트를 직접 번역한다 (드래그 번역용 — OCR 스킵).
+    /// C4: 각 단계 사이에서 state를 변경하여 UI가 중간 상태를 관찰할 수 있게 한다.
+    func startProcessing(text: String) {
+        currentTask?.cancel()
+
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            state = .failed(L10n.noSelectedText)
+            return
+        }
+
+        state = .translating
+        currentTask = Task {
+            do {
+                let effectiveSource = sourceLanguage
+                let translated = try await translationProvider.translate(
+                    text: text,
+                    from: effectiveSource,
+                    to: targetLanguage
+                )
+                try Task.checkCancellation()
+                logger.debug("드래그 번역 성공: \"\(translated)\"")
+
+                let result = TranslationResult(
+                    sourceText: text,
+                    translatedText: translated,
+                    lowConfidence: false,
+                    sourceLanguage: effectiveSource
+                )
+                state = .completed(result)
+            } catch is CancellationError {
+                state = .idle
+            } catch TranslationError.languageNotSupported {
+                state = .failed(L10n.unsupportedLanguagePair)
+            } catch {
+                logger.error("드래그 번역 에러: \(error)")
+                state = .failed(error.localizedDescription)
+            }
+        }
+    }
+
     /// ESC 등으로 진행 중인 작업을 취소한다.
     func cancel() {
         currentTask?.cancel()

@@ -315,6 +315,8 @@ struct SettingsView: View {
             Section(L10n.shortcutSection) {
                 KeyboardShortcuts.Recorder(L10n.translationShortcut, name: .translate)
                     .help(L10n.shortcutHelp)
+                KeyboardShortcuts.Recorder(L10n.dragTranslateShortcut, name: .dragTranslate)
+                    .help(L10n.dragTranslateShortcutHelp)
             }
 
             Section(L10n.advancedSection) {

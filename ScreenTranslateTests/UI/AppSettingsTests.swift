@@ -9,9 +9,9 @@ struct AppSettingsTests {
 
     // MARK: - 지원 언어 목록 (순수 데이터)
 
-    @Test("supportedLanguages contains 12 languages")
+    @Test("supportedLanguages contains 20 languages")
     func supportedLanguagesCount() {
-        #expect(AppSettings.supportedLanguages.count == 12)
+        #expect(AppSettings.supportedLanguages.count == 20)
     }
 
     @Test("supportedLanguages codes are unique")

@@ -8,6 +8,11 @@ struct MenuBarView: View {
         }
         .globalKeyboardShortcut(.translate)
 
+        Button(L10n.dragTranslate) {
+            AppOrchestrator.shared.startDragTranslation()
+        }
+        .globalKeyboardShortcut(.dragTranslate)
+
         Divider()
 
         // 최근 번역 서브메뉴

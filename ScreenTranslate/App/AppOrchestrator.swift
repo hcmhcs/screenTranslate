@@ -75,6 +75,12 @@ final class AppOrchestrator {
             }
         }
 
+        KeyboardShortcuts.onKeyUp(for: .dragTranslate) { [weak self] in
+            Task { @MainActor in
+                self?.startDragTranslation()
+            }
+        }
+
         // Sparkle canCheckForUpdates KVO → @Observable 브리지
         updateCancellable = updaterController.updater
             .publisher(for: \.canCheckForUpdates)
@@ -112,6 +118,124 @@ final class AppOrchestrator {
                 }
             }
         }
+    }
+
+    func startDragTranslation() {
+        // 기존 작업 취소 + 팝업 닫기
+        processingTask?.cancel()
+        processingTask = nil
+        coordinator.cancel()
+        removeClickOutsideMonitor()
+        popupWindow?.close()
+        popupWindow = nil
+
+        // Accessibility 권한 확인
+        guard TextGrabber.isAccessibilityTrusted else {
+            PermissionGuard.requestAccessibilityPermission()
+            return
+        }
+
+        processingTask = Task { @MainActor in
+            await processDragTranslation()
+        }
+    }
+
+    private func processDragTranslation() async {
+        // 설정에서 변경된 언어를 반영
+        coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
+        coordinator.targetLanguage = AppSettings.shared.targetLanguage
+
+        // 마우스 위치 기반 화면 감지
+        let mouseLocation = NSEvent.mouseLocation
+        currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+
+        // 선택된 텍스트 가져오기
+        guard let selectedText = await TextGrabber.getSelectedText(),
+              !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let popup = TranslationPopupWindow()
+            self.popupWindow = popup
+            let cursorRect = cursorScreenRect()
+            popup.show(state: .failed(L10n.noSelectedText), near: cursorRect, on: currentScreen)
+            installClickOutsideMonitor(for: popup)
+            return
+        }
+
+        // 팝업 윈도우 생성/재사용
+        let popup: TranslationPopupWindow
+        if let existing = popupWindow {
+            popup = existing
+        } else {
+            popup = TranslationPopupWindow()
+            self.popupWindow = popup
+        }
+
+        // 마우스 위치 기준 가상 rect
+        let cursorRect = cursorScreenRect()
+
+        // 로딩 상태 표시 (바로 '번역 중...')
+        popup.show(state: .translating, near: cursorRect, on: currentScreen)
+
+        do {
+            // OCR 스킵 — 텍스트 직접 번역
+            coordinator.startProcessing(text: selectedText)
+
+            while true {
+                try Task.checkCancellation()
+                let state = coordinator.state
+                popup.updateState(state, near: cursorRect, on: currentScreen)
+
+                if case .completed = state { break }
+                if case .failed = state { break }
+                if case .idle = state { break }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+
+            // 히스토리 기록
+            let finalState = coordinator.state
+            if case .completed(let result) = finalState {
+                TelemetryDeck.signal("dragTranslationCompleted", parameters: ["engine": coordinator.translationProvider.name])
+                historyManager.recordSuccess(
+                    sourceText: result.sourceText,
+                    translatedText: result.translatedText,
+                    sourceLanguageCode: result.sourceLanguage?.minimalIdentifier,
+                    targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
+                )
+                if AppSettings.shared.autoCopyToClipboard {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(result.translatedText, forType: .string)
+                    popup.autoCopied = true
+                    popup.updateState(finalState, near: cursorRect, on: currentScreen)
+                }
+            } else if case .failed(let message) = finalState {
+                historyManager.recordFailure(
+                    sourceText: selectedText,
+                    errorMessage: message,
+                    targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
+                )
+            }
+
+            installClickOutsideMonitor(for: popup)
+
+        } catch is CancellationError {
+            // 취소 시 조용히 종료
+        } catch {
+            popup.updateState(
+                .failed(error.localizedDescription),
+                near: cursorRect,
+                on: currentScreen
+            )
+            installClickOutsideMonitor(for: popup)
+        }
+    }
+
+    /// 마우스 커서 위치를 기반으로 팝업 배치용 가상 rect를 생성한다.
+    /// AppKit 좌하단 원점을 SwiftUI 좌상단 원점으로 변환한다.
+    private func cursorScreenRect() -> CGRect {
+        let mouse = NSEvent.mouseLocation
+        let screen = currentScreen ?? NSScreen.main!
+        let swiftUIY = screen.frame.maxY - mouse.y
+        let swiftUIX = mouse.x - screen.frame.origin.x
+        return CGRect(x: swiftUIX, y: swiftUIY, width: 1, height: 1)
     }
 
     /// H5: 팝업 외부 클릭 감지용 글로벌 마우스 모니터

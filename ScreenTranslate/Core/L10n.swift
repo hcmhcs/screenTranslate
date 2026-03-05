@@ -13,7 +13,7 @@ nonisolated enum L10n {
 
     // MARK: - Menu Bar
 
-    static var translate: String { s("Translate", ko: "번역하기") }
+    static var translate: String { s("Screen Translate", ko: "화면 캡처 번역") }
     static var recentTranslations: String { s("Recent Translations", ko: "최근 번역") }
     static var noHistory: String { s("No history", ko: "히스토리 없음") }
     static var showAll: String { s("Show All...", ko: "모두 보기...") }
@@ -44,7 +44,7 @@ nonisolated enum L10n {
     static var ocrEngine: String { s("OCR Engine", ko: "OCR 엔진") }
     static var translationEngine: String { s("Translation Engine", ko: "번역 엔진") }
     static var shortcutSection: String { s("Shortcut", ko: "단축키") }
-    static var translationShortcut: String { s("Translation Shortcut", ko: "번역 단축키") }
+    static var translationShortcut: String { s("Screen Translate Shortcut", ko: "화면 캡처 번역 단축키") }
     static var ocrEngineName: String { s("Apple Vision (Local)", ko: "Apple Vision (로컬)") }
     static var translationEngineName: String { s("Apple Translation (Local)", ko: "Apple Translation (로컬)") }
     static var swapLanguages: String { s("Swap Languages", ko: "언어 교체") }
@@ -210,6 +210,19 @@ nonisolated enum L10n {
         dateFormatter.dateFormat = "M/d"
         return "\(dateFormatter.string(from: date)) \(timeString)"
     }
+
+    // MARK: - Drag Translation (Beta)
+
+    static var dragTranslate: String { s("Drag Translate", ko: "드래그 번역") }
+    static var dragTranslateShortcut: String { s("Drag Translation Shortcut", ko: "드래그 번역 단축키") }
+    static var dragTranslateShortcutHelp: String { s("Global shortcut to translate selected text. Select text in any app, then press the shortcut.", ko: "선택한 텍스트를 번역하는 전역 단축키. 아무 앱에서 텍스트를 선택한 후 단축키를 누르세요.") }
+    static var noSelectedText: String { s("No text selected. Please select text first.", ko: "선택된 텍스트가 없습니다. 먼저 텍스트를 선택해주세요.") }
+    static var accessibilityPermissionRequired: String { s("Accessibility permission required", ko: "손쉬운 사용 권한이 필요합니다") }
+    static var accessibilityPermissionDescription: String {
+        s("Please allow ScreenTranslate in System Settings > Privacy & Security > Accessibility.",
+          ko: "시스템 설정 > 개인 정보 보호 및 보안 > 손쉬운 사용에서 ScreenTranslate를 허용해주세요.")
+    }
+    static var betaFeature: String { s("Beta", ko: "베타") }
 
     // MARK: - Errors
 

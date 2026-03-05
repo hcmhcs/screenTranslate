@@ -185,6 +185,15 @@ final class L10nTests: XCTestCase {
             ("onboardingPermRestart", L10n.onboardingPermRestart),
             ("onboardingDownloadLater", L10n.onboardingDownloadLater),
 
+            // Drag Translation (Beta)
+            ("dragTranslate", L10n.dragTranslate),
+            ("dragTranslateShortcut", L10n.dragTranslateShortcut),
+            ("dragTranslateShortcutHelp", L10n.dragTranslateShortcutHelp),
+            ("noSelectedText", L10n.noSelectedText),
+            ("accessibilityPermissionRequired", L10n.accessibilityPermissionRequired),
+            ("accessibilityPermissionDescription", L10n.accessibilityPermissionDescription),
+            ("betaFeature", L10n.betaFeature),
+
             // Errors
             ("noTextFound", L10n.noTextFound),
             ("unsupportedLanguagePair", L10n.unsupportedLanguagePair),

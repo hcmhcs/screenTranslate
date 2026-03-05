@@ -112,8 +112,7 @@ struct TranslationPopupView: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func completedView(result: TranslationCoordinator.TranslationResult) -> some View {

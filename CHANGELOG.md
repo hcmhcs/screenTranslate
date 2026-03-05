@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-06
+
+### Highlights
+
+- 🆕 Text Selection Translation — select text in any app, press shortcut to translate instantly (no OCR needed)
+- 🔧 Sparkle update dialog now shows release highlights with GitHub link
+
+### Added
+
+- Text selection translation (`Cmd+Option+Z`) — translate selected text directly without screen capture
+- Sparkle update dialog HTML release notes with Highlights section
+- Changelog Highlights extraction for Sparkle (`extract_changelog.sh --highlights`)
+- GitHub release link in Sparkle update dialog (`fullReleaseNotesLink`)
+
+### Improved
+
+- Popup position stability (top-left anchor fixed when height changes)
+- TextGrabber safety (clipboard backup/restore, CoreFoundation cast guard separation)
+- Settings shortcut label renamed to "Screen Translate Shortcut"
+- README updated with two translation modes (screen capture + text selection)
+
 ## [1.3.1] - 2026-03-05
 
 ### Added
