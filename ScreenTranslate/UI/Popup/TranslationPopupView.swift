@@ -97,9 +97,9 @@ struct TranslationPopupView: View {
 
     private var resizeGripIcon: some View {
         Image(systemName: "arrow.up.left.and.arrow.down.right")
-            .font(.system(size: 8))
-            .foregroundStyle(.tertiary)
-            .padding(6)
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
+            .padding(8)
     }
 
     // MARK: - Subviews
