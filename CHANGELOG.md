@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-05
+
+### Added
+
+- Popup window resize via bottom-right drag grip
+- Expanded supported languages to 20 (Arabic, Dutch, Hindi, Indonesian, Polish, Portuguese, Romanian, Swedish, Thai, Turkish, Ukrainian, Vietnamese added)
+- OCR preprocessing: preserve line breaks for bullet/numbered lists
+
+### Improved
+
+- Onboarding UI refinement and X button behavior change
+- History timestamps now use smart format (relative for recent, date for older)
+- Test suite expanded from 17 to 79 tests
+
+### Changed
+
+- Default shortcut changed from Ctrl+Shift+T to Cmd+Shift+T
+
 ## [1.2.1] - 2026-03-04
 
 ### Added
