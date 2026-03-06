@@ -297,11 +297,13 @@ final class TranslationPopupWindow: NSPanel {
     // MARK: - 동적 크기 계산
 
     private func calculateSize(for state: TranslationCoordinator.State, showingOriginal: Bool) -> NSSize {
+        let fontScale = AppSettings.shared.popupFontSize / 13.0
+
         switch state {
         case .idle:
-            return NSSize(width: 320, height: 150)
+            return NSSize(width: 320, height: 150 * fontScale)
         case .recognizing, .translating:
-            return NSSize(width: 320, height: 150)
+            return NSSize(width: 320, height: 150 * fontScale)
         case .completed(let result):
             // 폭: 글자 수 기반 결정 (텍스트 양이 많으면 넓게)
             let textLength = result.translatedText.count
@@ -309,23 +311,23 @@ final class TranslationPopupWindow: NSPanel {
 
             // 높이: 확정된 폭에서 정확한 측정
             let translatedHeight = measureTextHeight(result.translatedText, width: width)
-            var contentHeight = min(translatedHeight, 300) + 100  // 패딩 + 버튼 + 토글 + 구분선
+            var contentHeight = min(translatedHeight, 300 * fontScale) + 100  // 패딩 + 버튼 + 토글 + 구분선
 
             if showingOriginal {
                 let sourceHeight = measureTextHeight(result.sourceText, width: width)
-                contentHeight += min(sourceHeight, 200) + 30  // 원문 + 원문 헤더 + 구분선
+                contentHeight += min(sourceHeight, 200 * fontScale) + 30  // 원문 + 원문 헤더 + 구분선
             }
 
-            let height = min(max(contentHeight, 150), 600)
+            let height = min(max(contentHeight, 150 * fontScale), 600)
             return NSSize(width: width, height: height)
         case .failed:
-            return NSSize(width: 320, height: 180)
+            return NSSize(width: 320, height: 180 * fontScale)
         }
     }
 
     /// NSAttributedString 기반 텍스트 높이 측정 — 폰트 메트릭으로 정확한 높이 계산.
     private func measureTextHeight(_ text: String, width: CGFloat) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: NSFont.systemFontSize)  // SwiftUI .body = 13pt
+        let font = NSFont.systemFont(ofSize: AppSettings.shared.popupFontSize)
         let rect = NSAttributedString(string: text, attributes: [.font: font])
             .boundingRect(
                 with: CGSize(width: width - 32, height: .greatestFiniteMagnitude),

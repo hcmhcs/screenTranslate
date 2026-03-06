@@ -10,6 +10,8 @@ struct TranslationPopupView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var fontSize: CGFloat { AppSettings.shared.popupFontSize }
+
     @State private var didCopy = false
     @State private var showingOriginal = false
 
@@ -109,7 +111,7 @@ struct TranslationPopupView: View {
             ProgressView()
                 .controlSize(.small)
             Text(message)
-                .font(.body)
+                .font(.system(size: fontSize))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -119,14 +121,14 @@ struct TranslationPopupView: View {
         VStack(alignment: .leading, spacing: 8) {
             if result.lowConfidence {
                 Label(L10n.lowConfidence, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
+                    .font(.system(size: fontSize - 2))
                     .foregroundStyle(.orange)
             }
 
             // 번역문 — 짧은 텍스트는 자연 크기, 긴 텍스트만 스크롤
             ScrollView {
                 Text(result.translatedText)
-                    .font(.body)
+                    .font(.system(size: fontSize))
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .accessibilityLabel(L10n.translatedText)
@@ -142,20 +144,20 @@ struct TranslationPopupView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(L10n.originalText)
-                            .font(.caption)
+                            .font(.system(size: fontSize - 2))
                             .foregroundStyle(.secondary)
                         Spacer()
                         if let lang = result.sourceLanguage {
                             Text(Locale.current.localizedString(
                                 forIdentifier: lang.minimalIdentifier) ?? "")
-                                .font(.caption)
+                                .font(.system(size: fontSize - 2))
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     ScrollView {
                         Text(result.sourceText)
-                            .font(.body)
+                            .font(.system(size: fontSize))
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -173,7 +175,7 @@ struct TranslationPopupView: View {
                 .font(.title2)
                 .foregroundStyle(.secondary)
             Text(message)
-                .font(.body)
+                .font(.system(size: fontSize))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }

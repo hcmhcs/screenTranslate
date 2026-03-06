@@ -161,6 +161,21 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Popup Font Size
+
+    var popupFontSize: CGFloat {
+        get {
+            access(keyPath: \.popupFontSize)
+            let value = UserDefaults.standard.double(forKey: "com.screentranslate.popupFontSize")
+            return value > 0 ? value : 13.0
+        }
+        set {
+            withMutation(keyPath: \.popupFontSize) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.popupFontSize")
+            }
+        }
+    }
+
     // MARK: - Onboarding
 
     var hasCompletedOnboarding: Bool {

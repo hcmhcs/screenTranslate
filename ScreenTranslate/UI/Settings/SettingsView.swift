@@ -52,6 +52,20 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Stepper(value: $settings.popupFontSize, in: 11...20, step: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(L10n.popupFontSize)
+                            Spacer()
+                            Text("\(Int(settings.popupFontSize))pt")
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(L10n.popupFontSizeDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section(L10n.translationSection) {
