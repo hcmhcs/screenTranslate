@@ -62,8 +62,5 @@ struct SelectionOverlayView: View {
                     }
                 }
         )
-        .onHover { inside in
-            if inside { NSCursor.crosshair.push() } else { NSCursor.pop() }
-        }
     }
 }
