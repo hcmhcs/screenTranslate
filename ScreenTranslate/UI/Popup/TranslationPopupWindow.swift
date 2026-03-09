@@ -52,7 +52,7 @@ final class TranslationPopupWindow: NSPanel {
 
     let minResizeWidth: CGFloat = 280
     let maxResizeWidth: CGFloat = 800
-    let minResizeHeight: CGFloat = 120
+    let minResizeHeight: CGFloat = 100
     let maxResizeHeight: CGFloat = 800
 
     /// Wrapper container — NSHostingView와 ResizeGripView를 분리
@@ -298,30 +298,40 @@ final class TranslationPopupWindow: NSPanel {
 
     private func calculateSize(for state: TranslationCoordinator.State, showingOriginal: Bool) -> NSSize {
         let fontScale = AppSettings.shared.popupFontSize / 13.0
+        // 설정에 따라 캡처 영역 너비 매칭 또는 글자 수 기반 동적 너비 사용
+        let baseWidth: CGFloat
+        if AppSettings.shared.matchPopupWidthToSelection {
+            let selectionWidth = lastSelectionRect.width
+            baseWidth = selectionWidth > 0
+                ? min(max(selectionWidth, 280), 800)
+                : 320
+        } else {
+            // 글자 수 기반 동적 너비 (이전 방식)
+            if case .completed(let result) = state {
+                let textLength = result.translatedText.count
+                baseWidth = textLength > 200 ? 480 : (textLength > 100 ? 400 : 320)
+            } else {
+                baseWidth = 320
+            }
+        }
 
         switch state {
-        case .idle:
-            return NSSize(width: 320, height: 150 * fontScale)
-        case .recognizing, .translating:
-            return NSSize(width: 320, height: 150 * fontScale)
+        case .idle, .recognizing, .translating:
+            return NSSize(width: baseWidth, height: 100 * fontScale)
         case .completed(let result):
-            // 폭: 글자 수 기반 결정 (텍스트 양이 많으면 넓게)
-            let textLength = result.translatedText.count
-            let width: CGFloat = textLength > 200 ? 480 : (textLength > 100 ? 400 : 320)
-
             // 높이: 확정된 폭에서 정확한 측정
-            let translatedHeight = measureTextHeight(result.translatedText, width: width)
-            var contentHeight = min(translatedHeight, 300 * fontScale) + 100  // 패딩 + 버튼 + 토글 + 구분선
+            let translatedHeight = measureTextHeight(result.translatedText, width: baseWidth)
+            var contentHeight = min(translatedHeight, 300 * fontScale) + 84  // 패딩(32) + 버튼 행(28) + VStack spacing(12+8) + 여유(4)
 
             if showingOriginal {
-                let sourceHeight = measureTextHeight(result.sourceText, width: width)
+                let sourceHeight = measureTextHeight(result.sourceText, width: baseWidth)
                 contentHeight += min(sourceHeight, 200 * fontScale) + 30  // 원문 + 원문 헤더 + 구분선
             }
 
-            let height = min(max(contentHeight, 150 * fontScale), 600)
-            return NSSize(width: width, height: height)
+            let height = min(max(contentHeight, 100 * fontScale), 600)
+            return NSSize(width: baseWidth, height: height)
         case .failed:
-            return NSSize(width: 320, height: 180 * fontScale)
+            return NSSize(width: baseWidth, height: 180 * fontScale)
         }
     }
 

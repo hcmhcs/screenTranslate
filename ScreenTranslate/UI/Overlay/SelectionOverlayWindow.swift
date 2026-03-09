@@ -1,18 +1,28 @@
 import AppKit
 import SwiftUI
 
+/// NSHostingView의 두 가지 커서 관리 경로(resetCursorRects, cursorUpdate)를
+/// 모두 차단하고 십자 커서를 강제하는 서브클래스.
+private final class CrosshairHostingView<Content: View>: NSHostingView<Content> {
+    override func resetCursorRects() {
+        // super 호출 안함 — NSHostingView의 기본 화살표 커서를 십자 커서로 완전 대체
+        addCursorRect(bounds, cursor: .crosshair)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        // super 호출 안함 — NSHostingView의 커서 업데이트 이벤트 전파 차단
+        NSCursor.crosshair.set()
+    }
+}
+
 /// 전체 화면을 덮는 투명 오버레이 창.
 /// 사용자가 드래그로 영역을 선택하면 completion 핸들러를 호출한다.
 final class SelectionOverlayWindow: NSWindow {
     private var completion: ((CGRect?) -> Void)?
 
     init() {
-        // 현재 마우스 위치의 디스플레이를 찾는다
-        let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main ?? NSScreen.screens[0]
-
         super.init(
-            contentRect: screen.frame,
+            contentRect: NSScreen.main?.frame ?? .zero,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -32,23 +42,29 @@ final class SelectionOverlayWindow: NSWindow {
 
         // 현재 마우스 위치의 디스플레이에 표시
         let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main ?? NSScreen.screens[0]
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) })
+                ?? NSScreen.main
+                ?? NSScreen.screens.first else { return }
         setFrame(screen.frame, display: true)
 
         let overlayView = SelectionOverlayView(
             onComplete: { [weak self] rect in
-                self?.completion = nil  // 이중 호출 방지
-                self?.close()
-                completion(rect)
+                guard let self else { return }
+                let handler = self.completion
+                self.completion = nil
+                self.close()
+                handler?(rect)
             },
             onCancel: { [weak self] in
-                self?.completion = nil  // 이중 호출 방지
-                self?.close()
-                completion(nil)
+                guard let self else { return }
+                let handler = self.completion
+                self.completion = nil
+                self.close()
+                handler?(nil)
             }
         )
 
-        contentView = NSHostingView(rootView: overlayView)
+        contentView = CrosshairHostingView(rootView: overlayView)
         NSApp.activate()
         makeKeyAndOrderFront(nil)
     }
@@ -56,9 +72,10 @@ final class SelectionOverlayWindow: NSWindow {
     // ESC 키 처리 — AppKit 레벨 (SwiftUI onKeyPress는 포커스 필요)
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { // ESC
-            close()
-            completion?(nil)
+            let handler = completion
             completion = nil
+            close()
+            handler?(nil)
         } else {
             super.keyDown(with: event)
         }

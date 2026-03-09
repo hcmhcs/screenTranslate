@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-03-10
+
+### Highlights
+
+- 🆕 Popup width toggle — match popup width to selection area or auto-adjust by text length
+- 🔧 Settings reorganized into General / Advanced tabs
+
+### Added
+
+- Popup width matching toggle in Settings (default: off, adjusts by text length)
+
+### Improved
+
+- Settings reorganized into two tabs: General (languages, shortcuts, app) and Advanced (engine, popup, other)
+- Capture overlay crosshair cursor now appears instantly (AppKit-based)
+
+### Fixed
+
+- Screen capture overlay no longer re-activates when already active
+- Capture overlay completion handler safety improvements
+- CI archive now uses Developer ID certificate only
+
 ## [1.4.1] - 2026-03-07
 
 ### Highlights

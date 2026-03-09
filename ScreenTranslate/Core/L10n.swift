@@ -36,6 +36,12 @@ nonisolated enum L10n {
     // MARK: - Settings
 
     static var generalSection: String { s("General", ko: "일반") }
+    static var generalTab: String { s("General", ko: "일반") }
+    static var advancedTab: String { s("Advanced", ko: "고급") }
+    static var engineSection: String { s("Translation Engine", ko: "번역 엔진") }
+    static var popupSection: String { s("Popup", ko: "팝업") }
+    static var appSection: String { s("App", ko: "앱") }
+    static var otherSection: String { s("Other", ko: "기타") }
     static var appLanguageLabel: String { s("App Language", ko: "앱 언어") }
     static var translationSection: String { s("Translation", ko: "번역") }
     static var sourceLanguageLabel: String { s("Source", ko: "원문") }
@@ -98,6 +104,10 @@ nonisolated enum L10n {
 
     static var popupFontSize: String { s("Popup Font Size", ko: "팝업 글자 크기") }
     static var popupFontSizeDesc: String { s("Adjust the text size of translation popup.", ko: "번역 팝업의 글자 크기를 조절합니다.") }
+
+    static var matchPopupWidth: String { s("Fit Popup to Selection", ko: "팝업 너비 맞춤") }
+    static var matchPopupWidthDesc: String { s("When enabled, popup width matches the captured area. Otherwise, adjusts based on text length.", ko: "활성화 시 캡처 영역 너비에 맞추고, 비활성화 시 글자 수에 따라 자동 조절합니다.") }
+    static var matchPopupWidthHelp: String { s("Match the translation popup width to the captured selection area.", ko: "번역 팝업의 너비를 캡처한 선택 영역에 맞춥니다.") }
 
     static var advancedSection: String { s("Advanced", ko: "고급") }
     static var ocrTextPreprocessing: String { s("Text Preprocessing", ko: "텍스트 전처리") }

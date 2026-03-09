@@ -89,6 +89,9 @@ final class AppOrchestrator {
     }
 
     func startTranslation() {
+        // 오버레이가 이미 표시 중이면 무시 (중복 호출 방지)
+        guard overlayWindow == nil else { return }
+
         // H4: 기존 작업 취소 + 팝업 닫기
         processingTask?.cancel()
         processingTask = nil

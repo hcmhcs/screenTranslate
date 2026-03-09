@@ -19,55 +19,99 @@ struct SettingsView: View {
     @State private var azureRegionInput = ""
 
     var body: some View {
-        Form {
-            Section(L10n.generalSection) {
-                Picker(L10n.appLanguageLabel, selection: $settings.appLanguage) {
-                    Text("English").tag("en")
-                    Text("한국어").tag("ko")
-                }
-                .pickerStyle(.menu)
-                .help(L10n.appLanguageHelp)
+        TabView {
+            generalTab
+                .tabItem { Label(L10n.generalTab, systemImage: "gearshape") }
+            advancedTab
+                .tabItem { Label(L10n.advancedTab, systemImage: "slider.horizontal.3") }
+        }
+        .frame(width: 480)
+        .fixedSize(horizontal: false, vertical: true)
+        .task {
+            await packManager.refreshAllStatuses()
+            if settings.translationProviderName == "DeepL" && !settings.hasDeepLKey {
+                settings.translationProviderName = "Apple Translation"
+                AppOrchestrator.shared.updateTranslationProvider()
+            }
+            if settings.translationProviderName == "Google Cloud" && !settings.hasGoogleKey {
+                settings.translationProviderName = "Apple Translation"
+                AppOrchestrator.shared.updateTranslationProvider()
+            }
+            if settings.translationProviderName == "Microsoft Azure" && !settings.hasAzureKey {
+                settings.translationProviderName = "Apple Translation"
+                AppOrchestrator.shared.updateTranslationProvider()
+            }
+        }
+        .alert(L10n.languagePackNotInstalled, isPresented: $showDownloadAlert) {
+            Button(L10n.download) {
+                isDownloading = true
+                downloadStartTime = Date()
+                Task {
+                    let downloadCode = pendingDownloadCode ?? settings.targetLanguageCode
+                    let installedRef = packManager.findInstalledLanguage(excluding: downloadCode) ?? "en"
 
-                Toggle(L10n.launchAtLogin, isOn: $launchAtLogin)
-                    .help(L10n.launchAtLoginHelp)
-                    .onChange(of: launchAtLogin) { _, newValue in
-                        Task {
-                            do {
-                                if newValue {
-                                    try SMAppService.mainApp.register()
-                                } else {
-                                    try await SMAppService.mainApp.unregister()
-                                }
-                            } catch {
-                                launchAtLogin = (SMAppService.mainApp.status == .enabled)
+                    let source: Locale.Language
+                    let target: Locale.Language
+                    if downloadCode == settings.sourceLanguageCode {
+                        source = Locale.Language(identifier: downloadCode)
+                        target = Locale.Language(identifier: installedRef)
+                    } else {
+                        source = Locale.Language(identifier: installedRef)
+                        target = Locale.Language(identifier: downloadCode)
+                    }
+
+                    do {
+                        _ = try await TranslationBridge.shared.translate(
+                            text: " ", from: source, to: target
+                        )
+                    } catch {
+                        // 다운로드 프롬프트 표시 후 실패해도 상태 갱신
+                    }
+                    await packManager.refreshAllStatuses()
+                    isDownloading = false
+                }
+            }
+            .keyboardShortcut(.defaultAction)
+            Button(L10n.later, role: .cancel) {}
+        } message: {
+            if let code = pendingDownloadCode,
+               let name = AppSettings.supportedLanguages.first(where: { $0.code == code })?.name {
+                Text(L10n.languagePackMessage(name: name))
+            }
+        }
+        .overlay {
+            if isDownloading {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.large)
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        HStack(spacing: 8) {
+                            Text(L10n.downloading)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            if let start = downloadStartTime {
+                                Text(elapsedText(from: start))
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                    .monospacedDigit()
                             }
                         }
                     }
-
-                Toggle(isOn: $settings.autoCopyToClipboard) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.autoCopyToClipboard)
-                        Text(L10n.autoCopyToClipboardDesc)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(L10n.downloadingHint)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
                 }
-
-                Stepper(value: $settings.popupFontSize, in: 11...20, step: 1) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(L10n.popupFontSize)
-                            Spacer()
-                            Text("\(Int(settings.popupFontSize))pt")
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(L10n.popupFontSizeDesc)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.ultraThinMaterial)
             }
+        }
+    }
 
+    // MARK: - 일반 탭
+
+    private var generalTab: some View {
+        Form {
             Section(L10n.translationSection) {
                 HStack(spacing: 10) {
                     HStack(spacing: 4) {
@@ -140,7 +184,48 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .help(L10n.targetLanguageHelp)
                 }
+            }
 
+            Section(L10n.shortcutSection) {
+                KeyboardShortcuts.Recorder(L10n.translationShortcut, name: .translate)
+                    .help(L10n.shortcutHelp)
+                KeyboardShortcuts.Recorder(L10n.dragTranslateShortcut, name: .dragTranslate)
+                    .help(L10n.dragTranslateShortcutHelp)
+            }
+
+            Section(L10n.appSection) {
+                Picker(L10n.appLanguageLabel, selection: $settings.appLanguage) {
+                    Text("English").tag("en")
+                    Text("한국어").tag("ko")
+                }
+                .pickerStyle(.menu)
+                .help(L10n.appLanguageHelp)
+
+                Toggle(L10n.launchAtLogin, isOn: $launchAtLogin)
+                    .help(L10n.launchAtLoginHelp)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        Task {
+                            do {
+                                if newValue {
+                                    try SMAppService.mainApp.register()
+                                } else {
+                                    try await SMAppService.mainApp.unregister()
+                                }
+                            } catch {
+                                launchAtLogin = (SMAppService.mainApp.status == .enabled)
+                            }
+                        }
+                    }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    // MARK: - 고급 탭
+
+    private var advancedTab: some View {
+        Form {
+            Section(L10n.engineSection) {
                 Picker(L10n.ocrEngine, selection: $settings.ocrProviderName) {
                     Text(L10n.ocrEngineName).tag("Apple Vision")
                 }
@@ -326,14 +411,42 @@ struct SettingsView: View {
             }
             .animation(.easeInOut(duration: 0.2), value: settings.translationProviderName)
 
-            Section(L10n.shortcutSection) {
-                KeyboardShortcuts.Recorder(L10n.translationShortcut, name: .translate)
-                    .help(L10n.shortcutHelp)
-                KeyboardShortcuts.Recorder(L10n.dragTranslateShortcut, name: .dragTranslate)
-                    .help(L10n.dragTranslateShortcutHelp)
+            Section(L10n.popupSection) {
+                Stepper(value: $settings.popupFontSize, in: 11...20, step: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(L10n.popupFontSize)
+                            Spacer()
+                            Text("\(Int(settings.popupFontSize))pt")
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(L10n.popupFontSizeDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: $settings.matchPopupWidthToSelection) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.matchPopupWidth)
+                        Text(L10n.matchPopupWidthDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .help(L10n.matchPopupWidthHelp)
             }
 
-            Section(L10n.advancedSection) {
+            Section(L10n.otherSection) {
+                Toggle(isOn: $settings.autoCopyToClipboard) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.autoCopyToClipboard)
+                        Text(L10n.autoCopyToClipboardDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Toggle(isOn: $settings.ocrTextPreprocessing) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L10n.ocrTextPreprocessing)
@@ -345,91 +458,9 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
-        .fixedSize(horizontal: false, vertical: true)
-        .task {
-            await packManager.refreshAllStatuses()
-            // 외부에서 Keychain이 초기화된 경우 선택값 유효성 검증
-            if settings.translationProviderName == "DeepL" && !settings.hasDeepLKey {
-                settings.translationProviderName = "Apple Translation"
-                AppOrchestrator.shared.updateTranslationProvider()
-            }
-            if settings.translationProviderName == "Google Cloud" && !settings.hasGoogleKey {
-                settings.translationProviderName = "Apple Translation"
-                AppOrchestrator.shared.updateTranslationProvider()
-            }
-            if settings.translationProviderName == "Microsoft Azure" && !settings.hasAzureKey {
-                settings.translationProviderName = "Apple Translation"
-                AppOrchestrator.shared.updateTranslationProvider()
-            }
-        }
-        .alert(L10n.languagePackNotInstalled, isPresented: $showDownloadAlert) {
-            Button(L10n.download) {
-                isDownloading = true
-                downloadStartTime = Date()
-                Task {
-                    // 미설치 언어를 이미 설치된 언어와 쌍으로 구성하여 다운로드.
-                    // 설치된 쪽은 시스템이 스킵하므로 미설치 언어만 실제 다운로드된다.
-                    let downloadCode = pendingDownloadCode ?? settings.targetLanguageCode
-                    let installedRef = packManager.findInstalledLanguage(excluding: downloadCode) ?? "en"
-
-                    let source: Locale.Language
-                    let target: Locale.Language
-                    if downloadCode == settings.sourceLanguageCode {
-                        source = Locale.Language(identifier: downloadCode)
-                        target = Locale.Language(identifier: installedRef)
-                    } else {
-                        source = Locale.Language(identifier: installedRef)
-                        target = Locale.Language(identifier: downloadCode)
-                    }
-
-                    do {
-                        _ = try await TranslationBridge.shared.translate(
-                            text: " ", from: source, to: target
-                        )
-                    } catch {
-                        // 다운로드 프롬프트 표시 후 실패해도 상태 갱신
-                    }
-                    await packManager.refreshAllStatuses()
-                    isDownloading = false
-                }
-            }
-            .keyboardShortcut(.defaultAction)
-            Button(L10n.later, role: .cancel) {}
-        } message: {
-            if let code = pendingDownloadCode,
-               let name = AppSettings.supportedLanguages.first(where: { $0.code == code })?.name {
-                Text(L10n.languagePackMessage(name: name))
-            }
-        }
-        .overlay {
-            if isDownloading {
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .controlSize(.large)
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        HStack(spacing: 8) {
-                            Text(L10n.downloading)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                            if let start = downloadStartTime {
-                                Text(elapsedText(from: start))
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                                    .monospacedDigit()
-                            }
-                        }
-                    }
-                    Text(L10n.downloadingHint)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.ultraThinMaterial)
-            }
-        }
     }
+
+    // MARK: - Helpers
 
     private func elapsedText(from start: Date) -> String {
         let seconds = Int(Date().timeIntervalSince(start))
@@ -437,8 +468,6 @@ struct SettingsView: View {
         let s = seconds % 60
         return String(format: "%d:%02d", m, s)
     }
-
-    // MARK: - 엔진 설명
 
     private func engineDescription(for name: String) -> String {
         switch name {
@@ -448,8 +477,6 @@ struct SettingsView: View {
         default: return L10n.engineDescApple
         }
     }
-
-    // MARK: - 엔진 상태 아이콘
 
     @ViewBuilder
     private func engineStatusIcon(ready: Bool) -> some View {
@@ -461,8 +488,6 @@ struct SettingsView: View {
                 .foregroundStyle(.orange)
         }
     }
-
-    // MARK: - 상태 아이콘 (개별 언어 기준)
 
     @ViewBuilder
     private func languageStatusIcon(for code: String) -> some View {

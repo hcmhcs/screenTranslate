@@ -35,6 +35,10 @@ Screen capture with OCR, or select text and translate directly. On-device by def
 
 ## How It Works
 
+<div align="center">
+<img src="https://screentranslate.filient.ai/assets/screenTranslate-gif-en.gif" alt="ScreenTranslate Demo" width="600">
+</div>
+
 ### Screen Capture Translation
 
 1. **Press shortcut** — Hit `Cmd + Shift + T` (customizable) to enter selection mode

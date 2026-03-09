@@ -176,6 +176,20 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Popup Width Matching
+
+    var matchPopupWidthToSelection: Bool {
+        get {
+            access(keyPath: \.matchPopupWidthToSelection)
+            return UserDefaults.standard.object(forKey: "com.screentranslate.matchPopupWidthToSelection") as? Bool ?? false
+        }
+        set {
+            withMutation(keyPath: \.matchPopupWidthToSelection) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.matchPopupWidthToSelection")
+            }
+        }
+    }
+
     // MARK: - Onboarding
 
     var hasCompletedOnboarding: Bool {
