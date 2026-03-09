@@ -66,6 +66,16 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Toggle(isOn: $settings.matchPopupWidthToSelection) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.matchPopupWidth)
+                        Text(L10n.matchPopupWidthDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .help(L10n.matchPopupWidthHelp)
             }
 
             Section(L10n.translationSection) {

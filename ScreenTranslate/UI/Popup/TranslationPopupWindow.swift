@@ -298,11 +298,22 @@ final class TranslationPopupWindow: NSPanel {
 
     private func calculateSize(for state: TranslationCoordinator.State, showingOriginal: Bool) -> NSSize {
         let fontScale = AppSettings.shared.popupFontSize / 13.0
-        // 캡처 영역 너비를 기준으로 팝업 너비 결정 (최소 280, 최대 800)
-        let selectionWidth = lastSelectionRect.width
-        let baseWidth: CGFloat = selectionWidth > 0
-            ? min(max(selectionWidth, 280), 800)
-            : 320
+        // 설정에 따라 캡처 영역 너비 매칭 또는 글자 수 기반 동적 너비 사용
+        let baseWidth: CGFloat
+        if AppSettings.shared.matchPopupWidthToSelection {
+            let selectionWidth = lastSelectionRect.width
+            baseWidth = selectionWidth > 0
+                ? min(max(selectionWidth, 280), 800)
+                : 320
+        } else {
+            // 글자 수 기반 동적 너비 (이전 방식)
+            if case .completed(let result) = state {
+                let textLength = result.translatedText.count
+                baseWidth = textLength > 200 ? 480 : (textLength > 100 ? 400 : 320)
+            } else {
+                baseWidth = 320
+            }
+        }
 
         switch state {
         case .idle, .recognizing, .translating:
@@ -310,7 +321,7 @@ final class TranslationPopupWindow: NSPanel {
         case .completed(let result):
             // 높이: 확정된 폭에서 정확한 측정
             let translatedHeight = measureTextHeight(result.translatedText, width: baseWidth)
-            var contentHeight = min(translatedHeight, 300 * fontScale) + 76  // 패딩(32) + 버튼 행(28) + VStack spacing(12) + 마진(4)
+            var contentHeight = min(translatedHeight, 300 * fontScale) + 84  // 패딩(32) + 버튼 행(28) + VStack spacing(12+8) + 여유(4)
 
             if showingOriginal {
                 let sourceHeight = measureTextHeight(result.sourceText, width: baseWidth)

@@ -99,6 +99,10 @@ nonisolated enum L10n {
     static var popupFontSize: String { s("Popup Font Size", ko: "팝업 글자 크기") }
     static var popupFontSizeDesc: String { s("Adjust the text size of translation popup.", ko: "번역 팝업의 글자 크기를 조절합니다.") }
 
+    static var matchPopupWidth: String { s("Fit Popup to Selection", ko: "팝업 너비 맞춤") }
+    static var matchPopupWidthDesc: String { s("When enabled, popup width matches the captured area. Otherwise, adjusts based on text length.", ko: "활성화 시 캡처 영역 너비에 맞추고, 비활성화 시 글자 수에 따라 자동 조절합니다.") }
+    static var matchPopupWidthHelp: String { s("Match the translation popup width to the captured selection area.", ko: "번역 팝업의 너비를 캡처한 선택 영역에 맞춥니다.") }
+
     static var advancedSection: String { s("Advanced", ko: "고급") }
     static var ocrTextPreprocessing: String { s("Text Preprocessing", ko: "텍스트 전처리") }
     static var ocrTextPreprocessingDesc: String { s("Merge line breaks from OCR into natural sentences before translation.", ko: "번역 전 OCR 줄바꿈을 자연스러운 문장으로 병합합니다.") }
