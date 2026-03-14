@@ -16,10 +16,6 @@ struct ScreenTranslateApp: App {
             MenuBarView()
         }
         .menuBarExtraStyle(.menu)
-
-        Settings {
-            SettingsView()
-        }
     }
 }
 
