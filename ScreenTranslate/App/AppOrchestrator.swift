@@ -112,13 +112,7 @@ final class AppOrchestrator {
         // 오버레이가 이미 표시 중이면 무시 (중복 호출 방지)
         guard overlayWindow == nil else { return }
 
-        // H4: 기존 작업 취소 + 팝업 닫기
-        processingTask?.cancel()
-        processingTask = nil
-        coordinator.cancel()
-        removeClickOutsideMonitor()
-        popupWindow?.close()
-        popupWindow = nil
+        cancelCurrentWork()
 
         // 권한 확인
         Task {
@@ -144,13 +138,7 @@ final class AppOrchestrator {
     }
 
     func startDragTranslation() {
-        // 기존 작업 취소 + 팝업 닫기
-        processingTask?.cancel()
-        processingTask = nil
-        coordinator.cancel()
-        removeClickOutsideMonitor()
-        popupWindow?.close()
-        popupWindow = nil
+        cancelCurrentWork()
 
         // Accessibility 권한 확인
         guard TextGrabber.isAccessibilityTrusted else {
@@ -163,60 +151,30 @@ final class AppOrchestrator {
         }
     }
 
-    private func processDragTranslation() async {
-        // 설정에서 변경된 언어를 반영
-        coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
-        coordinator.targetLanguage = AppSettings.shared.targetLanguage
+    /// 진행 중인 번역 작업을 취소하고 팝업을 닫는다.
+    private func cancelCurrentWork() {
+        processingTask?.cancel()
+        processingTask = nil
+        coordinator.cancel()
+        removeClickOutsideMonitor()
+        popupWindow?.close()
+        popupWindow = nil
+    }
 
-        // 마우스 위치 기반 화면 감지
-        let mouseLocation = NSEvent.mouseLocation
-        currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+    /// 번역 상태를 관찰하고 완료 시 히스토리 기록 + 자동복사를 수행한다.
+    private func observeAndRecord(
+        popup: TranslationPopupWindow,
+        rect: CGRect,
+        telemetryEvent: String,
+        sourceTextFallback: String?
+    ) async throws {
+        for await state in coordinator.stateStream {
+            try Task.checkCancellation()
+            popup.updateState(state, near: rect, on: currentScreen)
 
-        // 선택된 텍스트 가져오기
-        guard let selectedText = await TextGrabber.getSelectedText(),
-              !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            let popup = TranslationPopupWindow()
-            self.popupWindow = popup
-            let cursorRect = cursorScreenRect()
-            popup.show(state: .failed(L10n.noSelectedText), near: cursorRect, on: currentScreen)
-            installClickOutsideMonitor(for: popup)
-            return
-        }
-
-        // 팝업 윈도우 생성/재사용
-        let popup: TranslationPopupWindow
-        if let existing = popupWindow {
-            popup = existing
-        } else {
-            popup = TranslationPopupWindow()
-            self.popupWindow = popup
-        }
-
-        // 마우스 위치 기준 가상 rect
-        let cursorRect = cursorScreenRect()
-
-        // 로딩 상태 표시 (바로 '번역 중...')
-        popup.show(state: .translating, near: cursorRect, on: currentScreen)
-
-        do {
-            // OCR 스킵 — 텍스트 직접 번역
-            coordinator.startProcessing(text: selectedText)
-
-            while true {
-                try Task.checkCancellation()
-                let state = coordinator.state
-                popup.updateState(state, near: cursorRect, on: currentScreen)
-
-                if case .completed = state { break }
-                if case .failed = state { break }
-                if case .idle = state { break }
-                try await Task.sleep(for: .milliseconds(50))
-            }
-
-            // 히스토리 기록
-            let finalState = coordinator.state
-            if case .completed(let result) = finalState {
-                TelemetryDeck.signal("dragTranslationCompleted", parameters: ["engine": coordinator.translationProvider.name])
+            switch state {
+            case .completed(let result):
+                TelemetryDeck.signal(telemetryEvent, parameters: ["engine": coordinator.translationProvider.name])
                 historyManager.recordSuccess(
                     sourceText: result.sourceText,
                     translatedText: result.translatedText,
@@ -227,18 +185,60 @@ final class AppOrchestrator {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(result.translatedText, forType: .string)
                     popup.autoCopied = true
-                    popup.updateState(finalState, near: cursorRect, on: currentScreen)
+                    popup.updateState(state, near: rect, on: currentScreen)
                 }
-            } else if case .failed(let message) = finalState {
+                installClickOutsideMonitor(for: popup)
+                return
+
+            case .failed(let message):
                 historyManager.recordFailure(
-                    sourceText: selectedText,
+                    sourceText: sourceTextFallback,
                     errorMessage: message,
                     targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
                 )
+                installClickOutsideMonitor(for: popup)
+                return
+
+            case .idle:
+                return  // 취소됨
+
+            case .recognizing, .translating:
+                continue  // 다음 상태 대기
             }
+        }
+    }
 
+    private func processDragTranslation() async {
+        coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
+        coordinator.targetLanguage = AppSettings.shared.targetLanguage
+
+        let mouseLocation = NSEvent.mouseLocation
+        currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+
+        guard let selectedText = await TextGrabber.getSelectedText(),
+              !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let popup = TranslationPopupWindow()
+            self.popupWindow = popup
+            let cursorRect = cursorScreenRect()
+            popup.show(state: .failed(L10n.noSelectedText), near: cursorRect, on: currentScreen)
             installClickOutsideMonitor(for: popup)
+            return
+        }
 
+        let popup = popupWindow ?? TranslationPopupWindow()
+        self.popupWindow = popup
+        let cursorRect = cursorScreenRect()
+
+        popup.show(state: .translating, near: cursorRect, on: currentScreen)
+
+        do {
+            coordinator.startProcessing(text: selectedText)
+            try await observeAndRecord(
+                popup: popup,
+                rect: cursorRect,
+                telemetryEvent: "dragTranslationCompleted",
+                sourceTextFallback: selectedText
+            )
         } catch is CancellationError {
             // 취소 시 조용히 종료
         } catch {
@@ -255,7 +255,7 @@ final class AppOrchestrator {
     /// AppKit 좌하단 원점을 SwiftUI 좌상단 원점으로 변환한다.
     private func cursorScreenRect() -> CGRect {
         let mouse = NSEvent.mouseLocation
-        let screen = currentScreen ?? NSScreen.main!
+        let screen = currentScreen ?? NSScreen.main ?? NSScreen.screens.first!
         let swiftUIY = screen.frame.maxY - mouse.y
         let swiftUIX = mouse.x - screen.frame.origin.x
         return CGRect(x: swiftUIX, y: swiftUIY, width: 1, height: 1)
@@ -265,70 +265,23 @@ final class AppOrchestrator {
     private var clickMonitor: Any?
 
     private func processCapture(rect: CGRect) async {
-        // 설정에서 변경된 언어를 반영
         coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
         coordinator.targetLanguage = AppSettings.shared.targetLanguage
 
-        // H1: 팝업 윈도우를 재사용하여 NSHostingView 재생성으로 인한 깜빡임 방지
-        let popup: TranslationPopupWindow
-        if let existing = popupWindow {
-            popup = existing
-        } else {
-            popup = TranslationPopupWindow()
-            self.popupWindow = popup
-        }
+        let popup = popupWindow ?? TranslationPopupWindow()
+        self.popupWindow = popup
 
-        // 로딩 상태 표시
         popup.show(state: .recognizing, near: rect, on: currentScreen)
-
-        // H5: 진행 중에는 외부 클릭으로 닫히지 않도록,
-        // 완료/실패 후에만 클릭 모니터를 설치한다.
 
         do {
             let image = try await capturer.capture(rect: rect, screen: currentScreen)
-
-            // C4/H4: coordinator의 startProcessing()을 호출하고
-            // state 변경을 폴링하여 팝업을 업데이트한다.
             coordinator.startProcessing(image: image)
-
-            while true {
-                try Task.checkCancellation()  // 외부 취소 허용
-                let state = coordinator.state
-                popup.updateState(state, near: rect, on: currentScreen)
-
-                if case .completed = state { break }
-                if case .failed = state { break }
-                if case .idle = state { break }  // 취소됨
-                try await Task.sleep(for: .milliseconds(50))
-            }
-
-            // 히스토리 기록
-            let finalState = coordinator.state
-            if case .completed(let result) = finalState {
-                TelemetryDeck.signal("translationCompleted", parameters: ["engine": coordinator.translationProvider.name])
-                historyManager.recordSuccess(
-                    sourceText: result.sourceText,
-                    translatedText: result.translatedText,
-                    sourceLanguageCode: result.sourceLanguage?.minimalIdentifier,
-                    targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
-                )
-                if AppSettings.shared.autoCopyToClipboard {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(result.translatedText, forType: .string)
-                    popup.autoCopied = true
-                    popup.updateState(finalState, near: rect, on: currentScreen)
-                }
-            } else if case .failed(let message) = finalState {
-                historyManager.recordFailure(
-                    sourceText: nil,
-                    errorMessage: message,
-                    targetLanguageCode: coordinator.targetLanguage.minimalIdentifier
-                )
-            }
-
-            // H5: 번역 완료/실패 후 외부 클릭 시 닫기 모니터 설치
-            installClickOutsideMonitor(for: popup)
-
+            try await observeAndRecord(
+                popup: popup,
+                rect: rect,
+                telemetryEvent: "translationCompleted",
+                sourceTextFallback: nil
+            )
         } catch is CancellationError {
             // 취소 시 조용히 종료
         } catch {
