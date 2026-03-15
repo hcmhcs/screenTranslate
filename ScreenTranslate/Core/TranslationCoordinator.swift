@@ -80,7 +80,7 @@ final class TranslationCoordinator {
     /// 이미지에서 텍스트를 인식하고 번역한다.
     /// H4: Task 참조를 보관하여 ESC 취소를 지원한다.
     /// C4: 각 단계 사이에서 state를 변경하여 UI가 중간 상태를 관찰할 수 있게 한다.
-    func startProcessing(image: CGImage) {
+    func startProcessing(image: CGImage, preprocessOCR: Bool = false) {
         currentTask?.cancel()
         // 동기적으로 state를 즉시 변경 — Task 내부에서 설정하면
         // 폴링 루프가 .idle을 먼저 감지하여 즉시 break되는 레이스 컨디션 발생
@@ -99,7 +99,7 @@ final class TranslationCoordinator {
 
                 // OCR 텍스트 전처리: 줄바꿈을 공백으로 치환하여 번역 품질 향상
                 let textForTranslation: String
-                if AppSettings.shared.ocrTextPreprocessing {
+                if preprocessOCR {
                     textForTranslation = Self.preprocessOCRText(ocrResult.text)
                 } else {
                     textForTranslation = ocrResult.text

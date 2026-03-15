@@ -275,7 +275,7 @@ final class AppOrchestrator {
 
         do {
             let image = try await capturer.capture(rect: rect, screen: currentScreen)
-            coordinator.startProcessing(image: image)
+            coordinator.startProcessing(image: image, preprocessOCR: AppSettings.shared.ocrTextPreprocessing)
             try await observeAndRecord(
                 popup: popup,
                 rect: rect,
