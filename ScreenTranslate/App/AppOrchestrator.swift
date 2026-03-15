@@ -20,12 +20,27 @@ final class AppOrchestrator {
     private let capturer = ScreenCapturer()
     private var currentScreen: NSScreen?
 
-    /// SwiftData 컨테이너 — 히스토리 영구 저장
+    /// SwiftData 컨테이너 — 히스토리 영구 저장.
+    /// 스키마 마이그레이션 실패 시 기존 데이터를 삭제하고 재생성한다.
     let modelContainer: ModelContainer = {
         do {
             return try ModelContainer(for: TranslationRecord.self)
         } catch {
-            fatalError("ModelContainer 생성 실패: \(error)")
+            // DB 손상/마이그레이션 실패 시 기존 데이터 삭제 후 재시도
+            // SwiftData는 default.store + WAL/SHM 파일을 함께 사용하므로 모두 삭제
+            let storeURL = URL.applicationSupportDirectory
+                .appending(path: "default.store")
+            for suffix in ["", "-shm", "-wal"] {
+                let fileURL = URL(fileURLWithPath: storeURL.path() + suffix)
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+            do {
+                return try ModelContainer(for: TranslationRecord.self)
+            } catch {
+                // 최후 수단: 인메모리 컨테이너 (히스토리 미저장)
+                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+                return try! ModelContainer(for: TranslationRecord.self, configurations: config)
+            }
         }
     }()
 
