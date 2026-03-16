@@ -176,6 +176,20 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Popup Font Name
+
+    var popupFontName: String {
+        get {
+            access(keyPath: \.popupFontName)
+            return UserDefaults.standard.string(forKey: "com.screentranslate.popupFontName") ?? "system"
+        }
+        set {
+            withMutation(keyPath: \.popupFontName) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.popupFontName")
+            }
+        }
+    }
+
     // MARK: - Popup Width Matching
 
     var matchPopupWidthToSelection: Bool {

@@ -6,11 +6,14 @@ struct TranslationPopupView: View {
     let onClose: () -> Void
     let onToggleOriginal: (Bool) -> Void
     let autoCopied: Bool
+    var onOpenSettings: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var fontSize: CGFloat { AppSettings.shared.popupFontSize }
+    private var popupFont: Font { FontManager.shared.swiftUIFont(size: fontSize) }
+    private var popupFontSmall: Font { FontManager.shared.swiftUIFont(size: fontSize - 2) }
 
     @State private var didCopy = false
     @State private var showingOriginal = false
@@ -111,7 +114,7 @@ struct TranslationPopupView: View {
             ProgressView()
                 .controlSize(.small)
             Text(message)
-                .font(.system(size: fontSize))
+                .font(popupFont)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -121,14 +124,14 @@ struct TranslationPopupView: View {
         VStack(alignment: .leading, spacing: 8) {
             if result.lowConfidence {
                 Label(L10n.lowConfidence, systemImage: "exclamationmark.triangle")
-                    .font(.system(size: fontSize - 2))
+                    .font(popupFontSmall)
                     .foregroundStyle(.orange)
             }
 
             // 번역문 — 짧은 텍스트는 자연 크기, 긴 텍스트만 스크롤
             ScrollView {
                 Text(result.translatedText)
-                    .font(.system(size: fontSize))
+                    .font(popupFont)
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .accessibilityLabel(L10n.translatedText)
@@ -144,20 +147,20 @@ struct TranslationPopupView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(L10n.originalText)
-                            .font(.system(size: fontSize - 2))
+                            .font(popupFontSmall)
                             .foregroundStyle(.secondary)
                         Spacer()
                         if let lang = result.sourceLanguage {
                             Text(Locale.current.localizedString(
                                 forIdentifier: lang.minimalIdentifier) ?? "")
-                                .font(.system(size: fontSize - 2))
+                                .font(popupFontSmall)
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     ScrollView {
                         Text(result.sourceText)
-                            .font(.system(size: fontSize))
+                            .font(popupFont)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -175,9 +178,17 @@ struct TranslationPopupView: View {
                 .font(.title2)
                 .foregroundStyle(.secondary)
             Text(message)
-                .font(.system(size: fontSize))
+                .font(popupFont)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            if message == L10n.autoDetectFailedMessage, let onOpenSettings {
+                Button(L10n.openSettings) {
+                    onOpenSettings()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)

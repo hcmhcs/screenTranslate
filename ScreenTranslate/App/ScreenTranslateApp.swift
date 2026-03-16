@@ -12,14 +12,10 @@ struct ScreenTranslateApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("ScreenTranslate", systemImage: "text.viewfinder") {
+        MenuBarExtra("ScreenTranslate", image: "MenuBarIcon") {
             MenuBarView()
         }
         .menuBarExtraStyle(.menu)
-
-        Settings {
-            SettingsView()
-        }
     }
 }
 

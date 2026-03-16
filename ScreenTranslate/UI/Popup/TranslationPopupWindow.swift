@@ -55,6 +55,17 @@ final class TranslationPopupWindow: NSPanel {
     let minResizeHeight: CGFloat = 100
     let maxResizeHeight: CGFloat = 800
 
+    // MARK: - 크기 계산 상수
+
+    private let contentPaddingTotal: CGFloat = 32   // 좌우 패딩 16×2
+    private let buttonRowHeight: CGFloat = 28       // 복사/닫기 버튼 행
+    private let vStackSpacing: CGFloat = 24         // VStack spacing(12+8) + 여유(4)
+    private let contentOverhead: CGFloat = 84       // contentPaddingTotal + buttonRowHeight + vStackSpacing
+    private let originalTextHeader: CGFloat = 30    // 원문 헤더 + 구분선
+    private let maxTranslatedHeight: CGFloat = 300  // 번역문 최대 높이 (fontScale 적용 전)
+    private let maxOriginalHeight: CGFloat = 200    // 원문 최대 높이 (fontScale 적용 전)
+    private let maxTotalHeight: CGFloat = 600       // 팝업 전체 최대 높이
+
     /// Wrapper container — NSHostingView와 ResizeGripView를 분리
     private var containerView: NSView?
     private var resizeGripView: ResizeGripView?
@@ -134,42 +145,18 @@ final class TranslationPopupWindow: NSPanel {
         let heightDiff = newSize.height - frame.height
         origin.y -= heightDiff  // AppKit 좌하단 원점 → y를 줄여야 상단 고정
 
-        // 화면 경계: 하단을 넘으면 상단 위치를 유지하고 높이를 줄임
+        // 화면 경계 클램핑
         let targetScreen = screen ?? lastScreen ?? NSScreen.main!
-        let screenFrame = targetScreen.frame
-        if origin.y < screenFrame.minY + 8 {
-            let maxHeight = currentTopY - (screenFrame.minY + 8)
-            newSize.height = max(minResizeHeight, maxHeight)
-            origin.y = currentTopY - newSize.height
-        }
-        if origin.x + newSize.width > screenFrame.maxX - 8 {
-            origin.x = screenFrame.maxX - newSize.width - 8
-        }
+        clampToScreen(origin: &origin, size: &newSize, screen: targetScreen)
 
-        isUpdatingPosition = true
-        if shouldAnimate {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.2
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                self.animator().setFrame(
-                    NSRect(origin: origin, size: newSize),
-                    display: true
-                )
-            }, completionHandler: { [weak self] in
-                self?.isUpdatingPosition = false
-            })
-        } else {
-            setFrame(NSRect(origin: origin, size: newSize), display: true)
-            isUpdatingPosition = false
-        }
+        animateFrame(to: NSRect(origin: origin, size: newSize))
     }
 
     private func makePopupView(state: TranslationCoordinator.State) -> TranslationPopupView {
         TranslationPopupView(
             state: state,
             onCopy: { text in
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
+                Clipboard.copy(text)
             },
             onClose: { [weak self] in
                 self?.close()
@@ -177,7 +164,10 @@ final class TranslationPopupWindow: NSPanel {
             onToggleOriginal: { [weak self] showing in
                 self?.handleToggleOriginal(showing)
             },
-            autoCopied: autoCopied
+            autoCopied: autoCopied,
+            onOpenSettings: {
+                AppOrchestrator.shared.showSettings()
+            }
         )
     }
 
@@ -199,77 +189,32 @@ final class TranslationPopupWindow: NSPanel {
             var origin = self.frame.origin
             origin.y -= heightDiff
 
-            // 화면 경계: 하단을 넘으면 상단 위치를 유지하고 높이를 줄임
+            // 화면 경계 클램핑
             let screen = lastScreen ?? NSScreen.main!
             var adjustedSize = newSize
-            if origin.y < screen.frame.minY + 8 {
-                let maxHeight = currentTopY - (screen.frame.minY + 8)
-                adjustedSize.height = max(minResizeHeight, maxHeight)
-                origin.y = currentTopY - adjustedSize.height
-            }
+            clampToScreen(origin: &origin, size: &adjustedSize, screen: screen)
 
-            isUpdatingPosition = true
-            if shouldAnimate {
-                NSAnimationContext.runAnimationGroup({ context in
-                    context.duration = 0.2
-                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                    self.animator().setFrame(
-                        NSRect(origin: origin, size: adjustedSize),
-                        display: true
-                    )
-                }, completionHandler: { [weak self] in
-                    self?.isUpdatingPosition = false
-                })
-            } else {
-                self.setFrame(NSRect(origin: origin, size: adjustedSize), display: true)
-                isUpdatingPosition = false
-            }
+            animateFrame(to: NSRect(origin: origin, size: adjustedSize))
             return
         }
 
         var newSize = calculateSize(for: currentState, showingOriginal: showing)
 
-        let newOrigin: NSPoint
+        var newOrigin: NSPoint
         if userDidDrag {
             // 현재 위치 기준으로 높이만 변경 (상단 고정, 아래로 확장)
-            let currentTopY = self.frame.origin.y + self.frame.height
-            var origin = self.frame.origin
             let heightDiff = newSize.height - self.frame.height
-            origin.y -= heightDiff
+            newOrigin = self.frame.origin
+            newOrigin.y -= heightDiff
 
-            // 화면 경계: 하단을 넘으면 상단 위치를 유지하고 높이를 줄임
+            // 화면 경계 클램핑
             let screen = lastScreen ?? NSScreen.main!
-            if origin.y < screen.frame.minY + 8 {
-                let maxHeight = currentTopY - (screen.frame.minY + 8)
-                newSize.height = max(minResizeHeight, maxHeight)
-                origin.y = currentTopY - newSize.height
-            }
-            origin.x = max(origin.x, screen.frame.minX + 8)
-            if origin.x + newSize.width > screen.frame.maxX {
-                origin.x = screen.frame.maxX - newSize.width - 8
-            }
-
-            newOrigin = origin
+            clampToScreen(origin: &newOrigin, size: &newSize, screen: screen)
         } else {
             newOrigin = calculateOrigin(near: lastSelectionRect, popupSize: newSize, on: lastScreen)
         }
 
-        isUpdatingPosition = true
-        if shouldAnimate {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.2
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                self.animator().setFrame(
-                    NSRect(origin: newOrigin, size: newSize),
-                    display: true
-                )
-            }, completionHandler: { [weak self] in
-                self?.isUpdatingPosition = false
-            })
-        } else {
-            self.setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
-            isUpdatingPosition = false
-        }
+        animateFrame(to: NSRect(origin: newOrigin, size: newSize))
     }
 
     // MARK: - 리사이즈 그립
@@ -292,6 +237,47 @@ final class TranslationPopupWindow: NSPanel {
         container.addSubview(grip)
 
         resizeGripView = grip
+    }
+
+    // MARK: - 애니메이션 + 클램핑 헬퍼
+
+    /// 좌상단 고정 기준으로 프레임을 애니메이션 변경한다.
+    private func animateFrame(to newFrame: NSRect) {
+        isUpdatingPosition = true
+        if shouldAnimate {
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                self.animator().setFrame(newFrame, display: true)
+            }, completionHandler: { [weak self] in
+                self?.isUpdatingPosition = false
+            })
+        } else {
+            setFrame(newFrame, display: true)
+            isUpdatingPosition = false
+        }
+    }
+
+    /// 주어진 origin과 size를 화면 경계 내로 보정한다.
+    /// 좌상단(AppKit의 top = origin.y + height) 기준 고정.
+    private func clampToScreen(origin: inout NSPoint, size: inout NSSize, screen: NSScreen) {
+        let currentTopY = origin.y + size.height
+        let gap: CGFloat = 8
+
+        // 하단 넘침 → 높이 축소
+        if origin.y < screen.frame.minY + gap {
+            let maxHeight = currentTopY - (screen.frame.minY + gap)
+            size.height = max(minResizeHeight, maxHeight)
+            origin.y = currentTopY - size.height
+        }
+
+        // 우측 넘침
+        if origin.x + size.width > screen.frame.maxX - gap {
+            origin.x = screen.frame.maxX - size.width - gap
+        }
+
+        // 좌측 넘침
+        origin.x = max(origin.x, screen.frame.minX + gap)
     }
 
     // MARK: - 동적 크기 계산
@@ -317,30 +303,33 @@ final class TranslationPopupWindow: NSPanel {
 
         switch state {
         case .idle, .recognizing, .translating:
-            return NSSize(width: baseWidth, height: 100 * fontScale)
+            return NSSize(width: baseWidth, height: minResizeHeight * fontScale)
         case .completed(let result):
             // 높이: 확정된 폭에서 정확한 측정
             let translatedHeight = measureTextHeight(result.translatedText, width: baseWidth)
-            var contentHeight = min(translatedHeight, 300 * fontScale) + 84  // 패딩(32) + 버튼 행(28) + VStack spacing(12+8) + 여유(4)
+            var contentHeight = min(translatedHeight, maxTranslatedHeight * fontScale) + contentOverhead
 
             if showingOriginal {
                 let sourceHeight = measureTextHeight(result.sourceText, width: baseWidth)
-                contentHeight += min(sourceHeight, 200 * fontScale) + 30  // 원문 + 원문 헤더 + 구분선
+                contentHeight += min(sourceHeight, maxOriginalHeight * fontScale) + originalTextHeader
             }
 
-            let height = min(max(contentHeight, 100 * fontScale), 600)
+            let height = min(max(contentHeight, minResizeHeight * fontScale), maxTotalHeight)
             return NSSize(width: baseWidth, height: height)
-        case .failed:
-            return NSSize(width: baseWidth, height: 180 * fontScale)
+        case .failed(let message):
+            let height: CGFloat = (message == L10n.autoDetectFailedMessage)
+                ? 220 * fontScale
+                : 180 * fontScale
+            return NSSize(width: baseWidth, height: height)
         }
     }
 
     /// NSAttributedString 기반 텍스트 높이 측정 — 폰트 메트릭으로 정확한 높이 계산.
     private func measureTextHeight(_ text: String, width: CGFloat) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: AppSettings.shared.popupFontSize)
+        let font = FontManager.shared.font(size: AppSettings.shared.popupFontSize)
         let rect = NSAttributedString(string: text, attributes: [.font: font])
             .boundingRect(
-                with: CGSize(width: width - 32, height: .greatestFiniteMagnitude),
+                with: CGSize(width: width - contentPaddingTotal, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading]
             )
         return ceil(rect.height)
@@ -391,6 +380,25 @@ final class TranslationPopupWindow: NSPanel {
         if !isUpdatingPosition {
             userDidDrag = true
         }
+    }
+
+    // MARK: - 앱 activate 시 보조 윈도우 보호
+
+    override func close() {
+        super.close()
+        // super.close() 후 macOS가 설정/About 등을 key window로 선택하여
+        // 앞으로 올라올 수 있다. 다음 run loop에서 orderBack하여 되돌린다.
+        // (동기 orderBack은 super.close() 후 macOS 자동 선택에 의해 무효화됨)
+        DispatchQueue.main.async {
+            NSApp.orderBackAuxiliaryWindows()
+        }
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        // 팝업이 key window가 되면 앱이 activate되어 보조 윈도우(설정, About 등)가
+        // 다른 앱 위로 올라오는 것을 방지한다.
+        NSApp.orderBackAuxiliaryWindows(excluding: self)
     }
 
     override var canBecomeKey: Bool { true }

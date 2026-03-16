@@ -22,6 +22,7 @@ nonisolated enum TranslationError: LocalizedError {
     case translationFailed(String)
     case languageNotSupported
     case apiKeyMissing
+    case autoDetectFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -31,6 +32,8 @@ nonisolated enum TranslationError: LocalizedError {
             return L10n.unsupportedLanguagePair
         case .apiKeyMissing:
             return L10n.apiKeyInvalid
+        case .autoDetectFailed:
+            return L10n.autoDetectFailedMessage
         }
     }
 }

@@ -2,20 +2,28 @@ import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 import Translation
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @State private var settings = AppSettings.shared
     @State private var packManager = LanguagePackManager()
+    @State private var fontManager = FontManager.shared
     @State private var showDownloadAlert = false
     @State private var pendingDownloadCode: String?
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var isDownloading = false
     @State private var downloadStartTime: Date?
+    @State private var showRemoveFontAlert = false
+    @State private var fontToRemove: String?
+    @State private var downloadingFontIDs: Set<String> = []
+    @State private var showFontError = false
+    @State private var fontErrorMessage = ""
+    @State private var previousFontName = "system"
+    @State private var isDownloadingFont = false
+    @State private var showFontDownloadConfirm = false
+    @State private var pendingCatalogFont: FontManager.CatalogFont?
 
     // API Key 입력 상태
-    @State private var deepLKeyInput = ""
-    @State private var googleKeyInput = ""
-    @State private var azureKeyInput = ""
     @State private var azureRegionInput = ""
 
     var body: some View {
@@ -79,6 +87,41 @@ struct SettingsView: View {
                 Text(L10n.languagePackMessage(name: name))
             }
         }
+        .alert(L10n.removeFont, isPresented: $showRemoveFontAlert) {
+            Button(L10n.delete, role: .destructive) {
+                if let id = fontToRemove {
+                    fontManager.removeFont(id: id)
+                    if settings.popupFontName == id {
+                        settings.popupFontName = "system"
+                    }
+                }
+            }
+            Button(L10n.cancel, role: .cancel) {}
+        } message: {
+            if let id = fontToRemove,
+               let font = fontManager.installedFonts.first(where: { $0.id == id }) {
+                Text(L10n.removeFontConfirmation(name: font.displayName))
+            }
+        }
+        .alert(fontErrorMessage, isPresented: $showFontError) {
+            Button(L10n.confirm) {}
+        }
+        .alert(L10n.fontDownloadConfirmTitle, isPresented: $showFontDownloadConfirm) {
+            Button(L10n.download) {
+                guard let catalogFont = pendingCatalogFont else { return }
+                startFontDownload(catalogFont)
+            }
+            .keyboardShortcut(.defaultAction)
+            Button(L10n.cancel, role: .cancel) {
+                // 이전 폰트로 롤백
+                settings.popupFontName = previousFontName
+                pendingCatalogFont = nil
+            }
+        } message: {
+            if let font = pendingCatalogFont {
+                Text(L10n.fontDownloadConfirmMessage(name: font.name, size: formatBytes(font.sizeBytes)))
+            }
+        }
         .overlay {
             if isDownloading {
                 VStack(spacing: 12) {
@@ -90,7 +133,7 @@ struct SettingsView: View {
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                             if let start = downloadStartTime {
-                                Text(elapsedText(from: start))
+                                Text(DateFormatting.elapsedText(from: start))
                                     .font(.caption)
                                     .foregroundStyle(.tertiary)
                                     .monospacedDigit()
@@ -271,159 +314,172 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                // DeepL 선택 시 API 키 입력 인라인 표시
+                // DeepL API 키
                 if settings.translationProviderName == "DeepL" {
-                    if settings.hasDeepLKey {
-                        HStack {
-                            Label(L10n.apiKeySaved, systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                                .font(.callout)
-                            Spacer()
-                            Button(L10n.clear) {
-                                settings.deleteDeepLKey()
-                                deepLKeyInput = ""
-                                settings.translationProviderName = "Apple Translation"
-                                AppOrchestrator.shared.updateTranslationProvider()
-                            }
-                            .controlSize(.small)
+                    APIKeySection(
+                        hasKey: settings.hasDeepLKey,
+                        savedLabel: nil,
+                        onSave: { key in
+                            try? settings.saveDeepLKey(key)
+                            AppOrchestrator.shared.updateTranslationProvider()
+                        },
+                        onDelete: {
+                            settings.deleteDeepLKey()
+                            settings.translationProviderName = "Apple Translation"
+                            AppOrchestrator.shared.updateTranslationProvider()
                         }
-                    } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                SecureField(L10n.enterApiKey, text: $deepLKeyInput)
-                                    .textFieldStyle(.roundedBorder)
-                                Button(L10n.confirm) {
-                                    guard !deepLKeyInput.isEmpty else { return }
-                                    try? settings.saveDeepLKey(deepLKeyInput)
-                                    deepLKeyInput = ""
-                                    AppOrchestrator.shared.updateTranslationProvider()
-                                }
-                                .controlSize(.small)
-                                .disabled(deepLKeyInput.isEmpty)
-                            }
-                            Button(L10n.engineGuide) {
-                                if let url = URL(string: "https://screentranslate.filient.ai/engines?utm_source=app&utm_medium=settings&utm_campaign=screentranslate") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                            .font(.caption)
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
+                    )
                 }
 
-                // Google Cloud 선택 시 API 키 입력 인라인 표시
+                // Google Cloud API 키
                 if settings.translationProviderName == "Google Cloud" {
-                    if settings.hasGoogleKey {
-                        HStack {
-                            Label(L10n.apiKeySaved, systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                                .font(.callout)
-                            Spacer()
-                            Button(L10n.clear) {
-                                settings.deleteGoogleKey()
-                                googleKeyInput = ""
-                                settings.translationProviderName = "Apple Translation"
-                                AppOrchestrator.shared.updateTranslationProvider()
-                            }
-                            .controlSize(.small)
+                    APIKeySection(
+                        hasKey: settings.hasGoogleKey,
+                        savedLabel: nil,
+                        onSave: { key in
+                            try? settings.saveGoogleKey(key)
+                            AppOrchestrator.shared.updateTranslationProvider()
+                        },
+                        onDelete: {
+                            settings.deleteGoogleKey()
+                            settings.translationProviderName = "Apple Translation"
+                            AppOrchestrator.shared.updateTranslationProvider()
                         }
-                    } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                SecureField(L10n.enterApiKey, text: $googleKeyInput)
-                                    .textFieldStyle(.roundedBorder)
-                                Button(L10n.confirm) {
-                                    guard !googleKeyInput.isEmpty else { return }
-                                    try? settings.saveGoogleKey(googleKeyInput)
-                                    googleKeyInput = ""
-                                    AppOrchestrator.shared.updateTranslationProvider()
-                                }
-                                .controlSize(.small)
-                                .disabled(googleKeyInput.isEmpty)
-                            }
-                            Button(L10n.engineGuide) {
-                                if let url = URL(string: "https://screentranslate.filient.ai/engines?utm_source=app&utm_medium=settings&utm_campaign=screentranslate") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                            .font(.caption)
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
+                    )
                 }
 
-                // Microsoft Azure 선택 시 API 키 + 리전 입력 인라인 표시
+                // Microsoft Azure API 키 + 리전
                 if settings.translationProviderName == "Microsoft Azure" {
-                    if settings.hasAzureKey {
-                        HStack {
-                            Label(
-                                settings.azureRegion.map { "\(L10n.apiKeySaved) (\($0))" } ?? L10n.apiKeySaved,
-                                systemImage: "checkmark.circle.fill"
-                            )
-                            .foregroundStyle(.green)
-                            .font(.callout)
-                            Spacer()
-                            Button(L10n.clear) {
-                                settings.deleteAzureKey()
-                                settings.azureRegion = nil
-                                azureKeyInput = ""
-                                azureRegionInput = ""
-                                settings.translationProviderName = "Apple Translation"
-                                AppOrchestrator.shared.updateTranslationProvider()
-                            }
-                            .controlSize(.small)
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                SecureField(L10n.enterApiKey, text: $azureKeyInput)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-                            HStack {
-                                TextField(L10n.regionPlaceholder, text: $azureRegionInput)
-                                    .textFieldStyle(.roundedBorder)
-                                Button(L10n.confirm) {
-                                    guard !azureKeyInput.isEmpty else { return }
-                                    try? settings.saveAzureKey(azureKeyInput)
-                                    let region = azureRegionInput.trimmingCharacters(in: .whitespaces)
-                                    settings.azureRegion = region.isEmpty ? nil : region
-                                    azureKeyInput = ""
-                                    azureRegionInput = ""
-                                    AppOrchestrator.shared.updateTranslationProvider()
-                                }
-                                .controlSize(.small)
-                                .disabled(azureKeyInput.isEmpty)
-                            }
-                            Button(L10n.engineGuide) {
-                                if let url = URL(string: "https://screentranslate.filient.ai/engines?utm_source=app&utm_medium=settings&utm_campaign=screentranslate") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                            .font(.caption)
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
+                    APIKeySection(
+                        hasKey: settings.hasAzureKey,
+                        savedLabel: settings.azureRegion.map { "\(L10n.apiKeySaved) (\($0))" },
+                        onSave: { key in
+                            try? settings.saveAzureKey(key)
+                            let region = azureRegionInput.trimmingCharacters(in: .whitespaces)
+                            settings.azureRegion = region.isEmpty ? nil : region
+                            azureRegionInput = ""
+                            AppOrchestrator.shared.updateTranslationProvider()
+                        },
+                        onDelete: {
+                            settings.deleteAzureKey()
+                            settings.azureRegion = nil
+                            azureRegionInput = ""
+                            settings.translationProviderName = "Apple Translation"
+                            AppOrchestrator.shared.updateTranslationProvider()
+                        },
+                        regionInput: $azureRegionInput
+                    )
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: settings.translationProviderName)
 
             Section(L10n.popupSection) {
                 Stepper(value: $settings.popupFontSize, in: 11...20, step: 1) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(L10n.popupFontSize)
-                            Spacer()
-                            Text("\(Int(settings.popupFontSize))pt")
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(L10n.popupFontSizeDesc)
-                            .font(.caption)
+                    HStack {
+                        Text(L10n.popupFontSize)
+                        Spacer()
+                        Text("\(Int(settings.popupFontSize))pt")
                             .foregroundStyle(.secondary)
                     }
+                }
+                .help(L10n.popupFontSizeDesc)
+
+                // 폰트 선택 — 통합 Picker (시스템 + 번들 + 카탈로그 + 임포트)
+                HStack {
+                    Text(L10n.popupFont)
+                    Spacer()
+
+                    if isDownloadingFont {
+                        if fontManager.downloadProgress < 0 {
+                            ProgressView()
+                                .controlSize(.small)
+                                .padding(.trailing, 4)
+                        } else {
+                            ProgressView(value: fontManager.downloadProgress)
+                                .frame(width: 60)
+                                .padding(.trailing, 4)
+                        }
+                    }
+
+                    Picker(L10n.popupFont, selection: $settings.popupFontName) {
+                        Text(L10n.systemDefault).tag("system")
+                        Divider()
+
+                        // 번들 폰트
+                        ForEach(fontManager.installedFonts.filter { $0.source == .bundled }, id: \.id) { font in
+                            Text(font.displayName).tag(font.id)
+                        }
+
+                        // 카탈로그 폰트 (설치/미설치 통합)
+                        if !fontManager.catalogFonts.isEmpty {
+                            Divider()
+                            ForEach(fontManager.catalogFonts) { catalogFont in
+                                if fontManager.isInstalled(catalogFont) {
+                                    Label(catalogFont.name, systemImage: "checkmark.circle.fill")
+                                        .tag(catalogFont.id)
+                                } else {
+                                    Label {
+                                        Text("\(catalogFont.name) (\(formatBytes(catalogFont.sizeBytes)))")
+                                    } icon: {
+                                        Image(systemName: "arrow.down.circle")
+                                    }
+                                    .tag(catalogFont.id)
+                                }
+                            }
+                        }
+
+                        // 사용자 임포트 폰트
+                        let importedFonts = fontManager.installedFonts.filter { $0.source == .imported }
+                        if !importedFonts.isEmpty {
+                            Divider()
+                            ForEach(importedFonts, id: \.id) { font in
+                                Text(font.displayName).tag(font.id)
+                            }
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(maxWidth: 200)
+                    .disabled(isDownloadingFont)
+                    .id(fontManager.installedFonts.count)
+                    .onChange(of: settings.popupFontName) { oldValue, newValue in
+                        handleFontSelection(oldValue: oldValue, newValue: newValue)
+                    }
+
+                    Button(L10n.addFont) {
+                        importFontFromFile()
+                    }
+                    .controlSize(.small)
+                    .help(L10n.fontSelectMessage)
+                }
+                .help(L10n.popupFontDesc)
+
+                // 미리보기 (컴팩트)
+                Text(L10n.fontPreviewSample(for: settings.targetLanguageCode))
+                    .font(fontManager.swiftUIFont(size: settings.popupFontSize))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .accessibilityLabel(L10n.fontPreview)
+
+                // 삭제 버튼 (임포트/다운로드 폰트 선택 시)
+                if settings.popupFontName != "system",
+                   let selected = fontManager.installedFonts.first(where: { $0.id == settings.popupFontName }),
+                   selected.source != .bundled {
+                    Button(role: .destructive) {
+                        fontToRemove = selected.id
+                        showRemoveFontAlert = true
+                    } label: {
+                        Label(L10n.removeFont, systemImage: "trash")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red)
+                    .help(L10n.removeFont)
                 }
 
                 Toggle(isOn: $settings.matchPopupWidthToSelection) {
@@ -462,12 +518,71 @@ struct SettingsView: View {
 
     // MARK: - Helpers
 
-    private func elapsedText(from start: Date) -> String {
-        let seconds = Int(Date().timeIntervalSince(start))
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%d:%02d", m, s)
+    private func handleFontSelection(oldValue: String, newValue: String) {
+        // 다운로드 중이면 무시 (Picker .id() 리빌드에 의한 재트리거 방지)
+        guard !isDownloadingFont else { return }
+
+        // 이미 설치된 폰트이면 바로 적용
+        if newValue == "system" || fontManager.installedFonts.contains(where: { $0.id == newValue }) {
+            return
+        }
+
+        // 미설치 카탈로그 폰트 → 확인 팝업
+        guard let catalogFont = fontManager.catalogFonts.first(where: { $0.id == newValue }) else {
+            return
+        }
+
+        previousFontName = oldValue
+        pendingCatalogFont = catalogFont
+        showFontDownloadConfirm = true
     }
+
+    private func startFontDownload(_ catalogFont: FontManager.CatalogFont) {
+        isDownloadingFont = true
+        downloadingFontIDs.insert(catalogFont.id)
+
+        Task {
+            do {
+                try await fontManager.downloadFont(catalogFont)
+            } catch {
+                settings.popupFontName = previousFontName
+                fontErrorMessage = L10n.fontDownloadFailed
+                showFontError = true
+            }
+            isDownloadingFont = false
+            downloadingFontIDs.remove(catalogFont.id)
+            pendingCatalogFont = nil
+        }
+    }
+
+    private func importFontFromFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.font]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = L10n.fontSelectMessage
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let countBefore = fontManager.installedFonts.count
+        do {
+            try fontManager.importFont(from: url)
+            // Select the newly added font
+            if fontManager.installedFonts.count > countBefore,
+               let newFont = fontManager.installedFonts.last {
+                settings.popupFontName = newFont.id
+            }
+        } catch {
+            fontErrorMessage = L10n.fontImportFailed
+            showFontError = true
+        }
+    }
+
+    private func formatBytes(_ bytes: Int) -> String {
+        let mb = Double(bytes) / 1_000_000
+        return String(format: "%.1fMB", mb)
+    }
+
 
     private func engineDescription(for name: String) -> String {
         switch name {

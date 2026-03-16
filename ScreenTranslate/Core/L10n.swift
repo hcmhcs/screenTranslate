@@ -105,6 +105,50 @@ nonisolated enum L10n {
     static var popupFontSize: String { s("Popup Font Size", ko: "팝업 글자 크기") }
     static var popupFontSizeDesc: String { s("Adjust the text size of translation popup.", ko: "번역 팝업의 글자 크기를 조절합니다.") }
 
+    // MARK: - Font Settings
+
+    static var popupFont: String { s("Popup Font", ko: "팝업 폰트") }
+    static var popupFontDesc: String { s("Change the font of translation popup text.", ko: "번역 팝업의 텍스트 폰트를 변경합니다.") }
+    static var systemDefault: String { s("System Default", ko: "시스템 기본") }
+    static var addFont: String { s("Add Font...", ko: "폰트 추가...") }
+    static var fontPreview: String { s("Font Preview", ko: "폰트 미리보기") }
+    static var removeFont: String { s("Remove Font", ko: "폰트 삭제") }
+    static func removeFontConfirmation(name: String) -> String { s("Are you sure you want to remove '\(name)'?", ko: "'\(name)' 폰트를 삭제하시겠습니까?") }
+    static var fontImportFailed: String { s("Failed to import font.", ko: "폰트 가져오기에 실패했습니다.") }
+    static var fontDownloadFailed: String { s("Failed to download font.", ko: "폰트 다운로드에 실패했습니다.") }
+    static var fontSelectMessage: String { s("Select a .ttf or .otf font file to use in translation popups.", ko: "번역 팝업에 사용할 .ttf 또는 .otf 폰트 파일을 선택하세요.") }
+    static var fontDownloadConfirmTitle: String { s("Download Font", ko: "폰트 다운로드") }
+    static func fontDownloadConfirmMessage(name: String, size: String) -> String {
+        s("Download \(name) (\(size))?", ko: "\(name) (\(size))을 다운로드할까요?")
+    }
+
+    /// 타겟 언어별 폰트 미리보기 샘플 텍스트
+    static func fontPreviewSample(for languageCode: String) -> String {
+        switch languageCode {
+        case "ko": return "번역된 텍스트가 이렇게 표시됩니다."
+        case "en": return "The quick brown fox jumps over the lazy dog."
+        case "ja": return "翻訳されたテキストはこのように表示されます。"
+        case "zh-Hans": return "翻译后的文本将以这种方式显示。"
+        case "zh-Hant": return "翻譯後的文字將以這種方式顯示。"
+        case "fr": return "Le texte traduit s'affichera de cette façon."
+        case "de": return "Der übersetzte Text wird so angezeigt."
+        case "es": return "El texto traducido se mostrará de esta manera."
+        case "it": return "Il testo tradotto verrà visualizzato in questo modo."
+        case "pt": return "O texto traduzido será exibido desta forma."
+        case "ru": return "Переведённый текст будет отображаться так."
+        case "ar": return "سيتم عرض النص المترجم بهذه الطريقة."
+        case "nl": return "De vertaalde tekst wordt op deze manier weergegeven."
+        case "hi": return "अनुवादित पाठ इस तरह प्रदर्शित होगा।"
+        case "id": return "Teks terjemahan akan ditampilkan seperti ini."
+        case "pl": return "Przetłumaczony tekst będzie wyświetlany w ten sposób."
+        case "th": return "ข้อความที่แปลแล้วจะแสดงในลักษณะนี้"
+        case "tr": return "Çevrilen metin bu şekilde görüntülenecektir."
+        case "uk": return "Перекладений текст буде відображатися так."
+        case "vi": return "Văn bản dịch sẽ được hiển thị như thế này."
+        default: return "The quick brown fox jumps over the lazy dog."
+        }
+    }
+
     static var matchPopupWidth: String { s("Fit Popup to Selection", ko: "팝업 너비 맞춤") }
     static var matchPopupWidthDesc: String { s("When enabled, popup width matches the captured area. Otherwise, adjusts based on text length.", ko: "활성화 시 캡처 영역 너비에 맞추고, 비활성화 시 글자 수에 따라 자동 조절합니다.") }
     static var matchPopupWidthHelp: String { s("Match the translation popup width to the captured selection area.", ko: "번역 팝업의 너비를 캡처한 선택 영역에 맞춥니다.") }
@@ -256,4 +300,11 @@ nonisolated enum L10n {
     static func translationFailed(_ reason: String) -> String {
         s("Translation failed: \(reason)", ko: "번역 실패: \(reason)")
     }
+
+    static var autoDetectFailedMessage: String {
+        s("Could not detect the source language.\nFor short text, try setting the source language in Settings.",
+          ko: "원문 언어를 감지하지 못했습니다.\n짧은 텍스트의 경우, 설정에서 원문 언어를 지정해 보세요.")
+    }
+
+    static var openSettings: String { s("Open Settings", ko: "설정 열기") }
 }

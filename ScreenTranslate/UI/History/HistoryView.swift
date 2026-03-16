@@ -95,8 +95,7 @@ struct HistoryView: View {
     }
 
     private func copyToClipboard(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        Clipboard.copy(text)
     }
 }
 
@@ -218,8 +217,7 @@ struct HistoryRowView: View {
         HStack(spacing: 12) {
             if let translated = record.translatedText {
                 Button(L10n.copyTranslation) {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(translated, forType: .string)
+                    Clipboard.copy(translated)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -227,8 +225,7 @@ struct HistoryRowView: View {
 
             if !record.sourceText.isEmpty {
                 Button(L10n.copyOriginal) {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(record.sourceText, forType: .string)
+                    Clipboard.copy(record.sourceText)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

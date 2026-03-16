@@ -198,6 +198,8 @@ final class L10nTests: XCTestCase {
             ("noTextFound", L10n.noTextFound),
             ("unsupportedLanguagePair", L10n.unsupportedLanguagePair),
             ("noTextToTranslate", L10n.noTextToTranslate),
+            ("autoDetectFailedMessage", L10n.autoDetectFailedMessage),
+            ("openSettings", L10n.openSettings),
             ("noDisplayFound", L10n.noDisplayFound),
             ("cropFailed", L10n.cropFailed),
         ]

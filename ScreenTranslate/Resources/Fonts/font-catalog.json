@@ -1,0 +1,77 @@
+{
+  "version": 2,
+  "fonts": [
+    {
+      "id": "noto-sans",
+      "name": "Noto Sans",
+      "description": "Latin/Cyrillic — EN, FR, DE, ES, IT, PT, NL, PL, TR, VI, ID, UK, RU",
+      "sizeBytes": 1990000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth%2Cwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["en", "fr", "de", "es", "it", "pt", "nl", "pl", "tr", "vi", "id", "uk", "ru"]
+    },
+    {
+      "id": "noto-sans-kr",
+      "name": "Noto Sans KR",
+      "description": "한국어 + 영어",
+      "sizeBytes": 9900000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["ko", "en"]
+    },
+    {
+      "id": "noto-sans-jp",
+      "name": "Noto Sans JP",
+      "description": "日本語 + English",
+      "sizeBytes": 9100000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["ja", "en"]
+    },
+    {
+      "id": "noto-sans-sc",
+      "name": "Noto Sans SC",
+      "description": "简体中文 + English",
+      "sizeBytes": 16900000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["zh-Hans", "en"]
+    },
+    {
+      "id": "noto-sans-tc",
+      "name": "Noto Sans TC",
+      "description": "繁體中文 + English",
+      "sizeBytes": 11300000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanstc/NotoSansTC%5Bwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["zh-Hant", "en"]
+    },
+    {
+      "id": "noto-sans-arabic",
+      "name": "Noto Sans Arabic",
+      "description": "العربية",
+      "sizeBytes": 800000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansarabic/NotoSansArabic%5Bwdth%2Cwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["ar"]
+    },
+    {
+      "id": "noto-sans-thai",
+      "name": "Noto Sans Thai",
+      "description": "ภาษาไทย",
+      "sizeBytes": 200000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansthai/NotoSansThai%5Bwdth%2Cwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["th"]
+    },
+    {
+      "id": "noto-sans-devanagari",
+      "name": "Noto Sans Devanagari",
+      "description": "हिन्दी",
+      "sizeBytes": 600000,
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansdevanagari/NotoSansDevanagari%5Bwdth%2Cwght%5D.ttf",
+      "license": "SIL OFL 1.1",
+      "coverage": ["hi"]
+    }
+  ]
+}

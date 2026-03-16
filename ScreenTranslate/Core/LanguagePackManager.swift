@@ -28,18 +28,30 @@ final class LanguagePackManager {
         let langs = AppSettings.supportedLanguages
         var installedSet: Set<String> = []
 
-        // Phase 1: 설치된 쌍을 찾아 개별 언어 설치 여부를 추론.
-        // 최적화: 이미 설치 확인된 언어는 건너뛴다.
-        for i in 0..<langs.count {
-            guard !installedSet.contains(langs[i].code) else { continue }
-            let from = Locale.Language(identifier: langs[i].code)
-            for j in 0..<langs.count where i != j {
-                let to = Locale.Language(identifier: langs[j].code)
-                let status = await availability.status(from: from, to: to)
-                if status == .installed {
-                    installedSet.insert(langs[i].code)
-                    installedSet.insert(langs[j].code)
-                    break  // langs[i]가 설치됨을 확인, 다음 언어로
+        // Phase 1: 영어를 기준으로 각 언어의 설치 여부를 확인 (O(n) 최적 경로)
+        let enLang = Locale.Language(identifier: "en")
+        for lang in langs where lang.code != "en" {
+            let target = Locale.Language(identifier: lang.code)
+            let status = await availability.status(from: enLang, to: target)
+            if status == .installed {
+                installedSet.insert("en")
+                installedSet.insert(lang.code)
+            }
+        }
+
+        // Phase 1b: 영어가 설치되지 않은 경우에만 기존 교차 확인 폴백
+        if !installedSet.contains("en") {
+            for i in 0..<langs.count {
+                guard !installedSet.contains(langs[i].code) else { continue }
+                let from = Locale.Language(identifier: langs[i].code)
+                for j in 0..<langs.count where i != j {
+                    let to = Locale.Language(identifier: langs[j].code)
+                    let status = await availability.status(from: from, to: to)
+                    if status == .installed {
+                        installedSet.insert(langs[i].code)
+                        installedSet.insert(langs[j].code)
+                        break
+                    }
                 }
             }
         }

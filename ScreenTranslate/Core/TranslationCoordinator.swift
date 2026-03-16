@@ -7,9 +7,29 @@ private let logger = Logger(subsystem: "com.app.screentranslate", category: "tra
 
 /// OCR → Translation 데이터 파이프라인 상태 머신.
 /// OCRProvider와 TranslationProvider를 주입받아 사용한다.
-@Observable
+@MainActor @Observable
 final class TranslationCoordinator {
-    var state: State = .idle
+    var state: State = .idle {
+        didSet {
+            guard oldValue != state else { return }  // 동일 값 재할당 시 중복 yield 방지
+            stateContinuation?.yield(state)
+        }
+    }
+
+    /// 외부 관찰자가 상태 변경을 수신하는 스트림.
+    /// willSet에서 이전 continuation을 finish()하여 레이스 컨디션을 방지한다.
+    private var stateContinuation: AsyncStream<State>.Continuation? {
+        willSet {
+            stateContinuation?.finish()
+        }
+    }
+
+    var stateStream: AsyncStream<State> {
+        AsyncStream(bufferingPolicy: .bufferingNewest(10)) { continuation in
+            self.stateContinuation = continuation
+            continuation.yield(state)
+        }
+    }
 
     /// H4: 진행 중인 Task 참조를 보관하여 ESC 취소를 지원한다.
     private var currentTask: Task<Void, Never>?
@@ -60,7 +80,7 @@ final class TranslationCoordinator {
     /// 이미지에서 텍스트를 인식하고 번역한다.
     /// H4: Task 참조를 보관하여 ESC 취소를 지원한다.
     /// C4: 각 단계 사이에서 state를 변경하여 UI가 중간 상태를 관찰할 수 있게 한다.
-    func startProcessing(image: CGImage) {
+    func startProcessing(image: CGImage, preprocessOCR: Bool = false) {
         currentTask?.cancel()
         // 동기적으로 state를 즉시 변경 — Task 내부에서 설정하면
         // 폴링 루프가 .idle을 먼저 감지하여 즉시 break되는 레이스 컨디션 발생
@@ -79,7 +99,7 @@ final class TranslationCoordinator {
 
                 // OCR 텍스트 전처리: 줄바꿈을 공백으로 치환하여 번역 품질 향상
                 let textForTranslation: String
-                if AppSettings.shared.ocrTextPreprocessing {
+                if preprocessOCR {
                     textForTranslation = Self.preprocessOCRText(ocrResult.text)
                 } else {
                     textForTranslation = ocrResult.text
@@ -108,6 +128,9 @@ final class TranslationCoordinator {
                 state = .failed(L10n.noTextFound)
             } catch TranslationError.languageNotSupported {
                 state = .failed(L10n.unsupportedLanguagePair)
+            } catch TranslationError.autoDetectFailed(let underlying) {
+                logger.warning("자동 감지 번역 실패: \(underlying)")
+                state = .failed(L10n.autoDetectFailedMessage)
             } catch {
                 logger.error("번역 파이프라인 에러: \(error)")
                 state = .failed(error.localizedDescription)
@@ -148,6 +171,9 @@ final class TranslationCoordinator {
                 state = .idle
             } catch TranslationError.languageNotSupported {
                 state = .failed(L10n.unsupportedLanguagePair)
+            } catch TranslationError.autoDetectFailed(let underlying) {
+                logger.warning("자동 감지 드래그 번역 실패: \(underlying)")
+                state = .failed(L10n.autoDetectFailedMessage)
             } catch {
                 logger.error("드래그 번역 에러: \(error)")
                 state = .failed(error.localizedDescription)

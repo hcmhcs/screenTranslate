@@ -123,4 +123,32 @@ struct AppSettingsTests {
         UserDefaults.standard.set("ja", forKey: key)
         #expect(AppSettings.shared.targetLanguage.minimalIdentifier == "ja")
     }
+
+    // MARK: - Popup Font Name
+
+    @Test("default popupFontName is system")
+    func defaultPopupFontName() {
+        let key = "com.screentranslate.popupFontName"
+        let saved = UserDefaults.standard.string(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+
+        UserDefaults.standard.removeObject(forKey: key)
+        #expect(AppSettings.shared.popupFontName == "system")
+    }
+
+    @Test("popupFontName persists custom value")
+    func popupFontNamePersists() {
+        let key = "com.screentranslate.popupFontName"
+        let saved = UserDefaults.standard.string(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+
+        AppSettings.shared.popupFontName = "pretendard"
+        #expect(UserDefaults.standard.string(forKey: key) == "pretendard")
+    }
 }

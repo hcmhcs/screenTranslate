@@ -237,7 +237,7 @@ struct OnboardingView: View {
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                             if let start = downloadStartTime {
-                                Text(elapsedText(from: start))
+                                Text(DateFormatting.elapsedText(from: start))
                                     .font(.caption)
                                     .foregroundStyle(.tertiary)
                                     .monospacedDigit()
@@ -332,12 +332,6 @@ struct OnboardingView: View {
 
     // MARK: - Actions
 
-    private func elapsedText(from start: Date) -> String {
-        let seconds = Int(Date().timeIntervalSince(start))
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%d:%02d", m, s)
-    }
 
     private func downloadLanguagePack() {
         isDownloading = true
