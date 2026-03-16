@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-03-17
+
+### Highlights
+
+- 🆕 Custom font for translation popup — choose from 8 built-in Noto Sans fonts or use system default
+- 🔧 New menu bar icon design (viewfinder bracket + T_)
+- 🔧 Better error message when auto-detect language fails, with quick settings button
+
+### Added
+
+- Custom font picker for translation popup (8 Noto Sans fonts: CJK JP/KR/SC/TC, Arabic, Devanagari, Thai, Hebrew)
+- Friendly error message with "Open Settings" button when auto-detect language fails
+
+### Improved
+
+- Menu bar icon changed from SF Symbol to custom template image (viewfinder bracket + T_ design)
+- ModelContainer initialization: graceful recovery instead of fatalError (delete stale DB → reinit → in-memory fallback)
+- TranslationCoordinator refactored to AsyncStream-based state propagation
+- LanguagePackManager: O(n) English-first optimized path for language status checking
+- Dependency injection restored in TranslationCoordinator (removed direct AppSettings reference)
+- Multiple utility extractions: Clipboard, DateFormatting, APIKeySection component
+- TranslationPopupWindow magic numbers extracted + animation/clamping helpers separated
+
+### Fixed
+
+- Settings/About/History windows no longer rise above other apps during translation
+
 ## [1.4.2] - 2026-03-10
 
 ### Highlights
