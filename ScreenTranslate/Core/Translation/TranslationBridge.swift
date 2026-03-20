@@ -29,6 +29,12 @@ final class TranslationBridge {
     /// async/await 인터페이스로 번역을 요청한다.
     /// ⚠️ C1: 이전 continuation이 남아있으면 에러로 resume한 후 교체한다.
     /// 그렇지 않으면 resume 없이 덮어써져 크래시가 발생한다.
+    ///
+    /// ⚠️ 동시성 제한: 현재 단일 continuation만 지원한다.
+    /// QuickTranslate와 OCR/드래그 번역이 Apple Translation 엔진으로 동시에
+    /// 번역을 요청하면 먼저 진행 중인 요청이 CancellationError로 취소된다.
+    /// DeepL/Google/Azure는 독립 HTTP 호출이므로 영향 없음.
+    /// TODO: 요청 ID 기반 딕셔너리로 리팩토링하여 동시 번역 지원
     func translate(text: String, from source: Locale.Language?, to target: Locale.Language) async throws -> String {
         // C1: 기존 continuation이 있으면 취소 처리
         if let existing = continuation {

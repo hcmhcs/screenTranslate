@@ -40,6 +40,8 @@ struct AboutView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .frame(width: 300, height: 290)
+        .frame(width: 300)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.vertical, 16)
     }
 }

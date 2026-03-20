@@ -33,6 +33,20 @@ nonisolated enum L10n {
     static var lowConfidence: String { s("Low recognition confidence", ko: "인식 정확도가 낮습니다") }
     static var originalText: String { s("Original", ko: "원문") }
 
+    // MARK: - Quick Translate
+
+    static var quickTranslate: String { s("Quick Translate", ko: "빠른 번역") }
+    static var quickTranslateShortcut: String { s("Quick Translate Shortcut", ko: "빠른 번역 단축키") }
+    static var quickTranslateShortcutHelp: String { s("Open a mini translation panel to type and translate text", ko: "텍스트를 입력하여 번역하는 미니 패널을 엽니다") }
+    static var inputPlaceholder: String { s("Type text to translate...", ko: "번역할 텍스트를 입력하세요...") }
+    static var resultPlaceholder: String { s("Translation will appear here", ko: "번역 결과가 여기에 표시됩니다") }
+    static var quickTranslateHint: String { s("ESC: close  ·  Enter: translate  ·  ⇧Enter: new line  ·  ⌘/: swap", ko: "ESC: 닫기  ·  Enter: 번역  ·  ⇧Enter: 줄바꿈  ·  ⌘/: 언어 전환") }
+    static var sourceLanguageSelect: String { s("Source language", ko: "소스 언어 선택") }
+    static var targetLanguageSelect: String { s("Target language", ko: "번역 대상 언어 선택") }
+    static var doubleCopyShortcut: String { s("⌘C+C", ko: "⌘C+C") }
+    static var doubleCopyHelp: String { s("Press ⌘C twice quickly to translate copied text", ko: "⌘C를 빠르게 두 번 눌러 복사된 텍스트를 번역합니다") }
+    static var noClipboardText: String { s("No text in clipboard. Please copy text first.", ko: "클립보드에 텍스트가 없습니다. 먼저 텍스트를 복사해주세요.") }
+
     // MARK: - Settings
 
     static var generalSection: String { s("General", ko: "일반") }
@@ -150,7 +164,7 @@ nonisolated enum L10n {
     }
 
     static var matchPopupWidth: String { s("Fit Popup to Selection", ko: "팝업 너비 맞춤") }
-    static var matchPopupWidthDesc: String { s("When enabled, popup width matches the captured area. Otherwise, adjusts based on text length.", ko: "활성화 시 캡처 영역 너비에 맞추고, 비활성화 시 글자 수에 따라 자동 조절합니다.") }
+    static var matchPopupWidthDesc: String { s("Matches popup width to captured area when enabled.", ko: "활성화 시 캡처 영역에 팝업 너비를 맞춥니다.") }
     static var matchPopupWidthHelp: String { s("Match the translation popup width to the captured selection area.", ko: "번역 팝업의 너비를 캡처한 선택 영역에 맞춥니다.") }
 
     static var advancedSection: String { s("Advanced", ko: "고급") }

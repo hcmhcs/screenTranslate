@@ -35,6 +35,7 @@ final class TranslationHistoryManager {
         )
         modelContext.insert(record)
         save()
+        trimOldRecords()
         fetchRecent()
         logger.debug("히스토리 기록 (성공): \"\(sourceText.prefix(30))...\"")
     }
@@ -52,6 +53,7 @@ final class TranslationHistoryManager {
         )
         modelContext.insert(record)
         save()
+        trimOldRecords()
         fetchRecent()
         logger.debug("히스토리 기록 (실패): \(errorMessage)")
     }
@@ -93,5 +95,20 @@ final class TranslationHistoryManager {
         } catch {
             logger.error("히스토리 저장 실패: \(error)")
         }
+    }
+
+    /// 최근 N개만 유지하고 나머지를 삭제한다.
+    /// UI에서 접근할 수 없는 오래된 기록이 무한히 쌓이는 것을 방지.
+    private func trimOldRecords(keep: Int = 50) {
+        var descriptor = FetchDescriptor<TranslationRecord>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchOffset = keep
+        guard let old = try? modelContext.fetch(descriptor), !old.isEmpty else { return }
+        for record in old {
+            modelContext.delete(record)
+        }
+        save()
+        logger.debug("히스토리 자동 정리: \(old.count)건 삭제")
     }
 }

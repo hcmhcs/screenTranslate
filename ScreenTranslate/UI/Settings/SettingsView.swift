@@ -232,8 +232,56 @@ struct SettingsView: View {
             Section(L10n.shortcutSection) {
                 KeyboardShortcuts.Recorder(L10n.translationShortcut, name: .translate)
                     .help(L10n.shortcutHelp)
-                KeyboardShortcuts.Recorder(L10n.dragTranslateShortcut, name: .dragTranslate)
-                    .help(L10n.dragTranslateShortcutHelp)
+
+                // 드래그 번역: 커스텀 단축키 또는 ⌘C+C 택 1
+                HStack {
+                    Text(L10n.dragTranslateShortcut)
+                    Spacer()
+
+                    // 커스텀 단축키 옵션
+                    KeyboardShortcuts.Recorder("", name: .dragTranslate)
+                        .opacity(settings.dragTranslateMode == "custom" ? 1.0 : 0.4)
+                        .disabled(settings.dragTranslateMode != "custom")
+                        .overlay {
+                            // .disabled가 onTapGesture도 차단하므로,
+                            // 비활성 상태에서 투명 overlay로 탭을 캐치하여 모드 전환
+                            if settings.dragTranslateMode != "custom" {
+                                Color.clear
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        settings.dragTranslateMode = "custom"
+                                        AppOrchestrator.shared.updateDragTranslateMode()
+                                    }
+                            }
+                        }
+
+                    // ⌘C+C 옵션
+                    Text(L10n.doubleCopyShortcut)
+                        .font(.system(.body, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(settings.dragTranslateMode == "doubleCopy"
+                                    ? Color.accentColor.opacity(0.2)
+                                    : Color.secondary.opacity(0.1))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(settings.dragTranslateMode == "doubleCopy"
+                                    ? Color.accentColor : Color.clear, lineWidth: 1)
+                        )
+                        .foregroundStyle(settings.dragTranslateMode == "doubleCopy"
+                            ? .primary : .secondary)
+                        .onTapGesture {
+                            settings.dragTranslateMode = "doubleCopy"
+                            AppOrchestrator.shared.updateDragTranslateMode()
+                        }
+                }
+                .help(L10n.doubleCopyHelp)
+
+                KeyboardShortcuts.Recorder(L10n.quickTranslateShortcut, name: .quickTranslate)
+                    .help(L10n.quickTranslateShortcutHelp)
             }
 
             Section(L10n.appSection) {
@@ -259,6 +307,11 @@ struct SettingsView: View {
                             }
                         }
                     }
+
+                Button(L10n.checkForUpdates) {
+                    AppOrchestrator.shared.checkForUpdates()
+                }
+                .disabled(!AppOrchestrator.shared.canCheckForUpdates)
             }
         }
         .formStyle(.grouped)

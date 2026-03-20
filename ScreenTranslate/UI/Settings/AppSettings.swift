@@ -218,6 +218,20 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Drag Translate Mode
+
+    var dragTranslateMode: String {
+        get {
+            access(keyPath: \.dragTranslateMode)
+            return UserDefaults.standard.string(forKey: "com.screentranslate.dragTranslateMode") ?? "custom"
+        }
+        set {
+            withMutation(keyPath: \.dragTranslateMode) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.dragTranslateMode")
+            }
+        }
+    }
+
     // MARK: - Advanced
 
     var ocrTextPreprocessing: Bool {

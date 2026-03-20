@@ -17,6 +17,7 @@ final class AppOrchestrator {
 
     private var overlayWindow: SelectionOverlayWindow?
     private var popupWindow: TranslationPopupWindow?
+    private var quickTranslateWindow: QuickTranslateWindow?
     private let capturer = ScreenCapturer()
     private var currentScreen: NSScreen?
 
@@ -81,6 +82,7 @@ final class AppOrchestrator {
     func updateTranslationProvider() {
         let provider = TranslationProviderFactory.make(name: AppSettings.shared.translationProviderName)
         coordinator.updateProvider(provider)
+        quickTranslateWindow?.updateTranslationProvider()
     }
 
     func setup() {
@@ -95,9 +97,22 @@ final class AppOrchestrator {
             }
         }
 
-        KeyboardShortcuts.onKeyUp(for: .dragTranslate) { [weak self] in
+        // 드래그 번역: 커스텀 단축키 등록 + Cmd+C+C 글로벌 모니터 설치 (항상)
+        // 모니터는 콜백 내부에서 모드를 확인하여 동작 여부를 결정한다.
+        if AppSettings.shared.dragTranslateMode == "doubleCopy" {
+            KeyboardShortcuts.disable(.dragTranslate)
+        } else {
+            KeyboardShortcuts.onKeyUp(for: .dragTranslate) { [weak self] in
+                Task { @MainActor in
+                    self?.startDragTranslation()
+                }
+            }
+        }
+        installDoubleCopyMonitor()  // 항상 설치, 콜백에서 모드 확인
+
+        KeyboardShortcuts.onKeyUp(for: .quickTranslate) { [weak self] in
             Task { @MainActor in
-                self?.startDragTranslation()
+                self?.toggleQuickTranslate()
             }
         }
 
@@ -149,6 +164,18 @@ final class AppOrchestrator {
         processingTask = Task { @MainActor in
             await processDragTranslation()
         }
+    }
+
+    func toggleQuickTranslate() {
+        if let existing = quickTranslateWindow, existing.isVisible {
+            existing.hidePanel()
+            return
+        }
+
+        if quickTranslateWindow == nil {
+            quickTranslateWindow = QuickTranslateWindow()
+        }
+        quickTranslateWindow?.showPanel()
     }
 
     /// 진행 중인 번역 작업을 취소하고 팝업을 닫는다.
@@ -262,6 +289,122 @@ final class AppOrchestrator {
 
     /// H5: 팝업 외부 클릭 감지용 글로벌 마우스 모니터
     private var clickMonitor: Any?
+
+    /// Cmd+C+C 감지용 글로벌 모니터
+    private var doubleCopyMonitor: Any?
+    /// 마지막 Cmd+C 시간 — 0.4초 이내 재입력 시 번역 트리거
+    private var lastCmdCTime: Date?
+
+    // MARK: - Cmd+C+C 클립보드 번역
+
+    /// 드래그 번역 모드 전환 — 설정에서 변경 시 호출.
+    /// 글로벌 모니터는 항상 설치되어 있으므로 KeyboardShortcuts만 전환한다.
+    func updateDragTranslateMode() {
+        if AppSettings.shared.dragTranslateMode == "doubleCopy" {
+            KeyboardShortcuts.disable(.dragTranslate)
+        } else {
+            KeyboardShortcuts.onKeyUp(for: .dragTranslate) { [weak self] in
+                Task { @MainActor in
+                    self?.startDragTranslation()
+                }
+            }
+        }
+    }
+
+    /// Cmd+C+C 글로벌 모니터 설치 (앱 생명주기 동안 1회만 호출).
+    /// 글로벌 모니터는 다른 앱에서 발생한 Cmd+C도 감지한다.
+    /// 콜백 내부에서 dragTranslateMode를 확인하여 doubleCopy 모드일 때만 동작한다.
+    /// 모니터를 제거/재설치하면 macOS에서 간헐적으로 이벤트가 전달되지 않는 문제가 있어
+    /// 항상 설치된 상태를 유지한다.
+    private func installDoubleCopyMonitor() {
+        removeDoubleCopyMonitor()
+        doubleCopyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // doubleCopy 모드가 아니면 무시
+            guard AppSettings.shared.dragTranslateMode == "doubleCopy" else { return }
+
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            // Cmd+C 감지 — keyCode 8 (C키 물리 위치, 입력기 무관)
+            // .contains() 패턴으로 .function, .capsLock, .numericPad 등 추가 플래그 허용
+            guard flags.contains(.command),
+                  !flags.contains(.shift), !flags.contains(.option), !flags.contains(.control),
+                  event.keyCode == 8 else { return }  // 8 = C key
+
+            Task { @MainActor in
+                guard let self else { return }
+                let now = Date()
+                if let last = self.lastCmdCTime, now.timeIntervalSince(last) < 0.4 {
+                    // 두 번째 Cmd+C — 번역 실행
+                    self.lastCmdCTime = nil
+                    self.startClipboardTranslation()
+                } else {
+                    // 첫 번째 Cmd+C — 시간 기록
+                    self.lastCmdCTime = now
+                }
+            }
+        }
+    }
+
+    private func removeDoubleCopyMonitor() {
+        if let monitor = doubleCopyMonitor {
+            NSEvent.removeMonitor(monitor)
+            doubleCopyMonitor = nil
+        }
+        lastCmdCTime = nil
+    }
+
+    /// Cmd+C+C로 트리거된 클립보드 텍스트 번역.
+    /// Accessibility 권한 불필요 — 클립보드에서 직접 읽는다.
+    private func startClipboardTranslation() {
+        cancelCurrentWork()
+
+        processingTask = Task { @MainActor in
+            await processClipboardTranslation()
+        }
+    }
+
+    private func processClipboardTranslation() async {
+        coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
+        coordinator.targetLanguage = AppSettings.shared.targetLanguage
+
+        let mouseLocation = NSEvent.mouseLocation
+        currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+
+        // 클립보드에서 텍스트 읽기
+        guard let clipboardText = NSPasteboard.general.string(forType: .string),
+              !clipboardText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let popup = TranslationPopupWindow()
+            self.popupWindow = popup
+            let cursorRect = cursorScreenRect()
+            popup.show(state: .failed(L10n.noClipboardText), near: cursorRect, on: currentScreen)
+            installClickOutsideMonitor(for: popup)
+            return
+        }
+
+        let popup = popupWindow ?? TranslationPopupWindow()
+        self.popupWindow = popup
+        let cursorRect = cursorScreenRect()
+
+        popup.show(state: .translating, near: cursorRect, on: currentScreen)
+
+        do {
+            coordinator.startProcessing(text: clipboardText)
+            try await observeAndRecord(
+                popup: popup,
+                rect: cursorRect,
+                telemetryEvent: "doubleCopyTranslationCompleted",
+                sourceTextFallback: clipboardText
+            )
+        } catch is CancellationError {
+            // 취소 시 조용히 종료
+        } catch {
+            popup.updateState(
+                .failed(error.localizedDescription),
+                near: cursorRect,
+                on: currentScreen
+            )
+            installClickOutsideMonitor(for: popup)
+        }
+    }
 
     private func processCapture(rect: CGRect) async {
         coordinator.sourceLanguage = AppSettings.shared.sourceLanguage

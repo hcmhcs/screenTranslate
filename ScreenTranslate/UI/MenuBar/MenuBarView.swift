@@ -13,6 +13,11 @@ struct MenuBarView: View {
         }
         .globalKeyboardShortcut(.dragTranslate)
 
+        Button(L10n.quickTranslate) {
+            AppOrchestrator.shared.toggleQuickTranslate()
+        }
+        .globalKeyboardShortcut(.quickTranslate)
+
         Divider()
 
         // 최근 번역 서브메뉴
@@ -27,7 +32,8 @@ struct MenuBarView: View {
                         AppOrchestrator.shared.showHistory(expandingRecord: record.id)
                     } label: {
                         Label {
-                            Text(record.translatedText ?? record.errorMessage ?? "")
+                            let text = record.translatedText ?? record.errorMessage ?? ""
+                            Text(text.count > 40 ? String(text.prefix(40)) + "…" : text)
                                 .lineLimit(1)
                         } icon: {
                             Image(systemName: record.isSuccess
@@ -50,11 +56,6 @@ struct MenuBarView: View {
         Button(L10n.aboutApp) {
             AppOrchestrator.shared.showAbout()
         }
-
-        Button(L10n.checkForUpdates) {
-            AppOrchestrator.shared.checkForUpdates()
-        }
-        .disabled(!AppOrchestrator.shared.canCheckForUpdates)
 
         Button(L10n.settingsMenu) {
             AppOrchestrator.shared.showSettings()

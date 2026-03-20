@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-03-21
+
+### Highlights
+
+- 🆕 Quick Translate — press `Cmd+Shift+E` to open a mini translation panel, type text and get instant translation
+- 🆕 Cmd+C+C translation — press `Cmd+C` twice quickly to translate copied text
+- 🔧 Default shortcuts changed: `Cmd+E` for screen translate, `Cmd+Shift+E` for Quick Translate
+
+### Added
+
+- Quick Translate floating panel with language swap, auto-copy, and keyboard-driven workflow (Enter to translate, Shift+Enter for new line, Cmd+/ to swap languages)
+- Cmd+C+C drag translation — double-press copy to trigger translation from clipboard
+- Translation history auto-trim (keeps latest 50 records)
+
+### Improved
+
+- Default shortcuts changed to `Cmd+E` (screen translate) and `Cmd+Shift+E` (Quick Translate)
+- "Check for Updates" button moved from menu bar to Settings
+- About window padding auto-adjusted to content size
+- Popup width setting description simplified
+- Recent translations text truncated to 40 characters in menu bar
+
+### Fixed
+
+- Quick Translate keyboard shortcuts not working on first launch (callback registration retry)
+
 ## [1.4.3] - 2026-03-17
 
 ### Highlights

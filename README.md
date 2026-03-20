@@ -41,7 +41,7 @@ Screen capture with OCR, or select text and translate directly. On-device by def
 
 ### Screen Capture Translation
 
-1. **Press shortcut** — Hit `Cmd + Shift + T` (customizable) to enter selection mode
+1. **Press shortcut** — Hit `Cmd + E` (customizable) to enter selection mode
 2. **Drag to select** — Draw a rectangle around the text you want to translate
 3. **Read translation** — Translation appears in a popup near your selection
 
@@ -51,6 +51,12 @@ Screen capture with OCR, or select text and translate directly. On-device by def
 2. **Press shortcut** — Hit `Cmd + Option + Z` (customizable) to translate
 3. **Read translation** — Translation appears instantly — no OCR needed
 
+### Quick Translate
+
+1. **Press shortcut** — Hit `Cmd + Shift + E` (customizable) to open the mini translation panel
+2. **Type text** — Enter the text you want to translate
+3. **Press Enter** — Translation appears below. Use `Shift + Enter` for new lines
+
 No copy-paste, no browser tabs, no context switching.
 
 ## Features
@@ -59,6 +65,7 @@ No copy-paste, no browser tabs, no context switching.
 - **Completely Private** — On-device by default. No servers, no tracking, no data collection
 - **Instant Translation** — One shortcut triggers area selection, OCR, and translation in a single motion
 - **Text Selection Translation** — Select text in any app and translate directly — no OCR needed. Supports even more languages with cloud engines
+- **Quick Translate** — Type and translate instantly with a minimal floating panel
 - **20 Languages** — Auto-detect source language supported. Full list below
 - **Works Offline** — Download language packs once, translate anywhere without internet
 - **Optional Cloud Engines (BYOK)** — Already works without any API key. Optionally connect DeepL, Google Cloud, or Azure for more languages
@@ -114,7 +121,7 @@ Build and run with Xcode 16+.
 1. Launch ScreenTranslate — it appears in your **menu bar**
 2. Grant **Screen Recording** permission when prompted (System Settings → Privacy & Security)
 3. Grant **Accessibility** permission for text selection translation (System Settings → Privacy & Security)
-4. Press `Cmd + Shift + T` and drag over any text on screen — or select text and press `Cmd + Option + Z`
+4. Press `Cmd + E` and drag over any text on screen — or select text and press `Cmd + Option + Z` — or press `Cmd + Shift + E` to type and translate
 5. The translation popup appears instantly
 
 ### Changing Languages
