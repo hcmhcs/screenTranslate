@@ -193,6 +193,7 @@ final class AppOrchestrator {
         popup: TranslationPopupWindow,
         rect: CGRect,
         telemetryEvent: String,
+        telemetryParameters: [String: String] = [:],
         sourceTextFallback: String?
     ) async throws {
         for await state in coordinator.stateStream {
@@ -201,7 +202,9 @@ final class AppOrchestrator {
 
             switch state {
             case .completed(let result):
-                TelemetryDeck.signal(telemetryEvent, parameters: ["engine": coordinator.translationProvider.name])
+                var params = telemetryParameters
+                params["engine"] = coordinator.translationProvider.name
+                TelemetryDeck.signal(telemetryEvent, parameters: params)
                 historyManager.recordSuccess(
                     sourceText: result.sourceText,
                     translatedText: result.translatedText,
@@ -263,6 +266,7 @@ final class AppOrchestrator {
                 popup: popup,
                 rect: cursorRect,
                 telemetryEvent: "dragTranslationCompleted",
+                telemetryParameters: ["trigger": "shortcut"],
                 sourceTextFallback: selectedText
             )
         } catch is CancellationError {
@@ -391,7 +395,8 @@ final class AppOrchestrator {
             try await observeAndRecord(
                 popup: popup,
                 rect: cursorRect,
-                telemetryEvent: "doubleCopyTranslationCompleted",
+                telemetryEvent: "dragTranslationCompleted",
+                telemetryParameters: ["trigger": "doubleCopy"],
                 sourceTextFallback: clipboardText
             )
         } catch is CancellationError {
