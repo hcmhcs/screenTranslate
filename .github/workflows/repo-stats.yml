@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run github-repo-stats
-        uses: jgehrcke/github-repo-stats@v1
+        uses: jgehrcke/github-repo-stats@v1.4.2
         with:
           ghtoken: ${{ secrets.GITHUB_TOKEN }}
           repository: hcmhcs/screenTranslate
