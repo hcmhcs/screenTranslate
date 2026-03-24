@@ -15,5 +15,5 @@ jobs:
       - name: Run github-repo-stats
         uses: jgehrcke/github-repo-stats@v1.4.2
         with:
-          ghtoken: ${{ secrets.GITHUB_TOKEN }}
+          ghtoken: ${{ secrets.REPO_STATS_TOKEN }}
           repository: hcmhcs/screenTranslate
