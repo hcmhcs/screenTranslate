@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-03-31
+
+### Highlights
+
+- 🔧 Settings window now appears below the menu bar instead of screen center
+- 🔧 Cmd+C+C and drag translate now prompt for Accessibility permission automatically
+
+### Improved
+
+- Settings window positioned below menu bar, centered horizontally
+- Removed unnecessary scroll in Advanced settings tab
+- Accessibility permission auto-registration via `AXIsProcessTrustedWithOptions` for Cmd+C+C and drag translate
+- CI: Setup Python before awscli install to fix PEP 668 on macOS 26 runner
+
+### Fixed
+
+- Cmd+C+C silently failing without Accessibility permission — now shows permission dialog
+
 ## [1.5.1] - 2026-03-31
 
 ### Highlights
