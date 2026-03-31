@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions:
       contents: write
 
@@ -253,7 +253,7 @@ jobs:
         AWS_REQUEST_CHECKSUM_CALCULATION: when_required
         AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
       run: |
-        pip install awscli
+        pip3 install awscli
         VERSION="${{ steps.version.outputs.VERSION }}"
 
         aws s3 cp "$RUNNER_TEMP/ScreenTranslate-${VERSION}.zip" \
