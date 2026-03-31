@@ -103,7 +103,7 @@ nonisolated enum L10n {
     static var sourceLanguageHelp: String { s("Language of the text to translate. Auto Detect works for most cases", ko: "번역할 텍스트의 언어. 대부분의 경우 자동 감지로 충분합니다") }
     static var targetLanguageHelp: String { s("Language to translate into", ko: "번역 결과 언어") }
     static var ocrEngineHelp: String { s("Text recognition engine. Apple Vision runs on-device", ko: "텍스트 인식 엔진. Apple Vision은 온디바이스로 동작합니다") }
-    static var shortcutHelp: String { s("Global shortcut to start screen translation. Default: Option+Shift+E", ko: "화면 번역을 시작하는 전역 단축키. 기본값: ⌥⇧E") }
+    static var shortcutHelp: String { s("Global shortcut to start screen translation. Default: Cmd+E", ko: "화면 번역을 시작하는 전역 단축키. 기본값: ⌘E") }
 
     // MARK: - About Links
 

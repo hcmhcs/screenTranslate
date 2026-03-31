@@ -41,7 +41,7 @@ Screen capture with OCR, or select text and translate directly. On-device by def
 
 ### Screen Capture Translation
 
-1. **Press shortcut** — Hit `Option + Shift + E` (customizable) to enter selection mode
+1. **Press shortcut** — Hit `Cmd + E` (customizable) to enter selection mode
 2. **Drag to select** — Draw a rectangle around the text you want to translate
 3. **Read translation** — Translation appears in a popup near your selection
 
@@ -125,7 +125,7 @@ Build and run with Xcode 16+.
 1. Launch ScreenTranslate — it appears in your **menu bar**
 2. Grant **Screen Recording** permission when prompted (System Settings → Privacy & Security)
 3. Grant **Accessibility** permission for text selection translation (System Settings → Privacy & Security)
-4. Press `Option + Shift + E` and drag over any text on screen — or select text and press `Cmd + Option + Z` — or press `Cmd + Shift + E` to type and translate
+4. Press `Cmd + E` and drag over any text on screen — or select text and press `Cmd + Option + Z` — or press `Cmd + Shift + E` to type and translate
 5. The translation popup appears instantly
 
 ### Changing Languages

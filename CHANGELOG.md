@@ -27,13 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.1] - 2026-03-31
 
-### Highlights
-
-- 🔧 Default screen capture shortcut changed from `Cmd+E` to `Option+Shift+E` for better compatibility
-
 ### Improved
 
-- Default screen capture translation shortcut changed from `Cmd+E` to `Option+Shift+E` (avoids conflicts with system shortcuts)
 - TelemetryDeck event consolidation — merged doubleCopy into dragTranslation event
 - CI runner upgraded to macOS 26
 
