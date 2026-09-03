@@ -28,10 +28,23 @@ final class AppOrchestrator {
     let historyIsInMemory: Bool
 
     private init() {
+        // 단위 테스트는 앱을 호스트로 실행하므로, 그대로 두면 테스트마다 실제 사용자 히스토리를 열고
+        // 이전(migration)까지 수행한다. 테스트 환경에서는 인메모리 스토어만 쓴다.
+        if Self.isRunningUnitTests {
+            let config = ModelConfiguration(isStoredInMemoryOnly: true)
+            modelContainer = try! ModelContainer(for: TranslationRecord.self, configurations: config)
+            historyIsInMemory = true
+            return
+        }
         HistoryStore.migrateLegacyStoreIfNeeded(from: HistoryStore.legacyStoreURL, to: HistoryStore.defaultStoreURL)
         let result = HistoryStore.makeContainer(at: HistoryStore.defaultStoreURL)
         modelContainer = result.container
         historyIsInMemory = result.isInMemory
+    }
+
+    private static var isRunningUnitTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
     }
 
     /// 번역 히스토리 관리자 — @Observable이 lazy를 지원하지 않으므로 추적 제외
