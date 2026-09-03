@@ -197,7 +197,11 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
 
             let targetName = AppSettings.supportedLanguages.first(where: { $0.code == selectedTargetCode })?.name ?? selectedTargetCode
-            Text("English → \(targetName)")
+            let sourceCode = AppSettings.shared.sourceLanguageCode
+            let sourceName = sourceCode == "auto"
+                ? L10n.autoDetect
+                : (AppSettings.supportedLanguages.first(where: { $0.code == sourceCode })?.name ?? sourceCode)
+            Text("\(sourceName) → \(targetName)")
                 .font(.title3)
                 .fontWeight(.semibold)
         }
@@ -258,8 +262,12 @@ struct OnboardingView: View {
                 Label(L10n.onboardingLangNotInstalled, systemImage: "arrow.down.circle")
                     .foregroundStyle(.orange)
                     .font(.callout)
+            } else if status == .unsupported {
+                Label(L10n.unsupportedLanguagePair, systemImage: "xmark.circle")
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
             } else {
-                // unsupported 또는 아직 로딩 중
+                // 아직 로딩 중
                 ProgressView()
                     .controlSize(.small)
             }

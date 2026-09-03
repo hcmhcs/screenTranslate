@@ -396,8 +396,6 @@ final class FontManager {
             }
         }
 
-        registeredURLs.insert(url)
-
         // Extract PostScript name
         let psName = postScriptName(from: url) ?? url.deletingPathExtension().lastPathComponent
 
@@ -415,8 +413,12 @@ final class FontManager {
                 .replacingOccurrences(of: " ", with: "-")
         }
 
-        // Avoid duplicates
-        guard !installedFonts.contains(where: { $0.id == fontId }) else { return }
+        // Avoid duplicates — id가 겹치는 파일은 CoreText 등록도 되돌려 목록에 없는 폰트가 남지 않게 한다
+        guard !installedFonts.contains(where: { $0.id == fontId }) else {
+            CTFontManagerUnregisterFontsForURL(url as CFURL, .process, nil)
+            return
+        }
+        registeredURLs.insert(url)
 
         let installed = InstalledFont(
             id: fontId,

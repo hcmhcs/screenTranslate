@@ -24,13 +24,13 @@ enum TextGrabber {
     static func getSelectedText() async -> String? {
         // A: Accessibility API 시도
         if let text = tryAccessibilityAPI(), !text.isEmpty {
-            logger.debug("Accessibility API로 텍스트 획득: \(text.prefix(50))")
+            logger.debug("Accessibility API로 텍스트 획득 (\(text.count)자)")
             return text
         }
 
         // B: Cmd+C fallback
         if let text = await tryCopyFallback(), !text.isEmpty {
-            logger.debug("Cmd+C fallback으로 텍스트 획득: \(text.prefix(50))")
+            logger.debug("Cmd+C fallback으로 텍스트 획득 (\(text.count)자)")
             return text
         }
 

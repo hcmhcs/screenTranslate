@@ -17,6 +17,7 @@ struct TranslationPopupView: View {
 
     @State private var didCopy = false
     @State private var showingOriginal = false
+    @State private var copyFeedbackTask: Task<Void, Never>?
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -52,20 +53,14 @@ struct TranslationPopupView: View {
                     if case .completed(let result) = state {
                         Button(didCopy ? L10n.copied : L10n.copy) {
                             onCopy(result.translatedText)
-                            didCopy = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                didCopy = false
-                            }
+                            showCopyFeedback(for: .seconds(0.5))
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(didCopy ? .green : .accentColor)
                         .keyboardShortcut("c", modifiers: .command)
                         .onChange(of: autoCopied) { _, newValue in
                             if newValue {
-                                didCopy = true
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                    didCopy = false
-                                }
+                                showCopyFeedback(for: .seconds(1.0))
                             }
                         }
                     }
@@ -92,6 +87,18 @@ struct TranslationPopupView: View {
     }
 
     // MARK: - Resize Grip
+
+
+    /// "복사됨" 배지를 잠시 보여준다. 연타하면 이전 타이머를 취소해 조기에 사라지지 않는다.
+    private func showCopyFeedback(for duration: Duration) {
+        copyFeedbackTask?.cancel()
+        didCopy = true
+        copyFeedbackTask = Task { @MainActor in
+            try? await Task.sleep(for: duration)
+            guard !Task.isCancelled else { return }
+            didCopy = false
+        }
+    }
 
     private var isResizableState: Bool {
         switch state {

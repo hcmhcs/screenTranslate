@@ -76,8 +76,8 @@ struct HistoryView: View {
                 .listStyle(.inset(alternatesRowBackgrounds: true))
             }
         }
-        .frame(minWidth: 500, idealWidth: 600, maxWidth: 800,
-               minHeight: 400, idealHeight: 500, maxHeight: 700)
+        .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity,
+               minHeight: 400, idealHeight: 500, maxHeight: .infinity)
         .confirmationDialog(L10n.deleteAll, isPresented: $showingDeleteAllConfirm) {
             Button(L10n.deleteAllHistory, role: .destructive) {
                 historyManager.deleteAll()
@@ -130,6 +130,7 @@ struct HistoryRowView: View {
                 Image(systemName: record.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .foregroundStyle(record.isSuccess ? .green : .red)
                     .font(.caption)
+                    .accessibilityLabel(record.isSuccess ? L10n.historySucceeded : L10n.historyFailed)
 
                 // 언어 정보
                 if let sourceLang = record.sourceLanguageCode {

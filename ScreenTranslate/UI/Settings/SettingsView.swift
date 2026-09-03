@@ -511,7 +511,7 @@ struct SettingsView: View {
                     .labelsHidden()
                     .frame(maxWidth: 200)
                     .disabled(isDownloadingFont)
-                    .id(fontManager.installedFonts.count)
+                    .id(fontManager.installedFonts.map(\.id).joined(separator: ","))
                     .onChange(of: settings.popupFontName) { oldValue, newValue in
                         handleFontSelection(oldValue: oldValue, newValue: newValue)
                     }
@@ -669,9 +669,11 @@ struct SettingsView: View {
         if ready {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green)
+                .accessibilityLabel(L10n.engineReady)
         } else {
             Image(systemName: "key")
                 .foregroundStyle(.orange)
+                .accessibilityLabel(L10n.engineNeedsKey)
         }
     }
 
@@ -681,12 +683,15 @@ struct SettingsView: View {
         case .installed:
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green)
+                .accessibilityLabel(L10n.statusInstalled)
         case .available:
             Image(systemName: "arrow.down.circle")
                 .foregroundStyle(.orange)
+                .accessibilityLabel(L10n.statusDownloadable)
         case .unsupported:
             Image(systemName: "xmark.circle")
                 .foregroundStyle(.secondary)
+                .accessibilityLabel(L10n.statusUnsupported)
         case .none:
             EmptyView()
         }
