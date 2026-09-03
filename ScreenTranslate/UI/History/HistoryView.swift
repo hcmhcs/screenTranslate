@@ -3,6 +3,8 @@ import SwiftUI
 struct HistoryView: View {
     let historyManager: TranslationHistoryManager
     var initialExpandedID: UUID?
+    /// 스토어를 열 수 없어 인메모리로 동작 중이면 경고 배너를 띄운다 (H2)
+    var isInMemory = false
 
     @State private var expandedRecordID: UUID?
     @State private var showingDeleteAllConfirm = false
@@ -26,6 +28,16 @@ struct HistoryView: View {
             .padding(.vertical, 12)
 
             Divider()
+
+            if isInMemory {
+                Label(L10n.historyNotPersisted, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                Divider()
+            }
 
             // 히스토리 목록
             if historyManager.recentRecords.isEmpty {
@@ -78,6 +90,12 @@ struct HistoryView: View {
             historyManager.fetchRecent()
             if let id = initialExpandedID {
                 expandedRecordID = id
+            }
+        }
+        .onChange(of: initialExpandedID) { _, newValue in
+            // H5: 창이 이미 열려 있을 때 rootView가 교체되면 onAppear는 다시 호출되지 않는다
+            if let newValue {
+                expandedRecordID = newValue
             }
         }
     }
