@@ -62,7 +62,9 @@ final class FontManager {
         var entries: [String: Entry]  // key = filename (e.g. "NotoSansKR-Regular.otf")
 
         struct Entry: Codable {
-            var catalogId: String?    // e.g. "noto-sans-kr" — 임포트 폰트는 nil
+            /// e.g. "noto-sans-kr". 임포트 폰트는 파일명에서 만든 id를 넣는다.
+            /// (1.5.2 이하가 non-optional로 디코딩하므로 optional로 바꾸면 다운그레이드 시 메타데이터 전체가 깨진다)
+            var catalogId: String
             var displayName: String   // e.g. "Noto Sans KR"
             var source: FontSource?   // nil이면 .downloaded (1.5.2 이하 메타데이터 호환, H4)
         }
@@ -195,7 +197,7 @@ final class FontManager {
         // 설정의 "가져온 폰트" 목록에서 사라진다
         var metadata = loadMetadata()
         metadata.entries[destURL.lastPathComponent] = FontMetadata.Entry(
-            catalogId: nil,
+            catalogId: Self.derivedFontId(from: destURL),
             displayName: destURL.deletingPathExtension().lastPathComponent,
             source: .imported
         )
@@ -353,6 +355,13 @@ final class FontManager {
         installedFonts.first(where: { $0.id == catalogFont.id })?.id
     }
 
+    /// 파일명에서 폰트 id를 만든다 ("NotoSans-Regular.otf" → "notosans").
+    static func derivedFontId(from url: URL) -> String {
+        url.deletingPathExtension().lastPathComponent.lowercased()
+            .replacingOccurrences(of: "-regular", with: "")
+            .replacingOccurrences(of: " ", with: "-")
+    }
+
     /// Extracts the PostScript name from a font file URL.
     func postScriptName(from url: URL) -> String? {
         guard let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor],
@@ -406,11 +415,8 @@ final class FontManager {
             fontId = cId
             displayName = catalogDisplayName ?? url.deletingPathExtension().lastPathComponent
         } else {
-            let rawName = url.deletingPathExtension().lastPathComponent
-            displayName = rawName
-            fontId = rawName.lowercased()
-                .replacingOccurrences(of: "-regular", with: "")
-                .replacingOccurrences(of: " ", with: "-")
+            displayName = url.deletingPathExtension().lastPathComponent
+            fontId = Self.derivedFontId(from: url)
         }
 
         // Avoid duplicates — id가 겹치는 파일은 CoreText 등록도 되돌려 목록에 없는 폰트가 남지 않게 한다

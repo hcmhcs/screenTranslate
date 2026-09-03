@@ -61,6 +61,10 @@ final class QuickTranslateWindow: NSPanel {
     /// 패널 표시 — 화면 상단 중앙에 위치
     func showPanel() {
         let panelSize = NSSize(width: Self.panelWidth, height: Self.panelHeight)
+        model.adoptSettingsLanguages(
+            source: AppSettings.shared.sourceLanguageCode,
+            target: AppSettings.shared.targetLanguageCode
+        )
 
         if hostingView == nil {
             let view = QuickTranslateView(model: model)

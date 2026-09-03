@@ -123,7 +123,7 @@ final class TranslationPopupWindow: NSPanel {
     func updateState(_ state: TranslationCoordinator.State, near selectionRect: CGRect, on screen: NSScreen? = nil) {
         currentState = state
         lastSelectionRect = selectionRect
-        lastScreen = screen
+        if let screen { lastScreen = screen }  // nil로 호출돼도 직전의 올바른 화면을 버리지 않는다
 
         let popupView = makePopupView(state: state)
 
@@ -292,6 +292,9 @@ final class TranslationPopupWindow: NSPanel {
 
         // 좌측 넘침
         origin.x = max(origin.x, visible.minX + gap)
+
+        // 최종 보정: 높이가 최소값에 막혀 보이는 영역보다 클 때도 하단이 Dock 아래로 내려가지 않게
+        origin.y = max(origin.y, visible.minY + gap)
     }
 
     /// H6: NSScreen.main은 디스플레이 재구성 중 nil일 수 있다. 강제 언랩 대신 이 헬퍼를 쓴다.
@@ -400,6 +403,9 @@ final class TranslationPopupWindow: NSPanel {
         if origin.x < visible.minX {
             origin.x = visible.minX + gap
         }
+
+        // 최종 보정: 팝업이 보이는 영역보다 커도 하단이 Dock 아래로 내려가지 않게
+        origin.y = max(origin.y, visible.minY + gap)
 
         return origin
     }

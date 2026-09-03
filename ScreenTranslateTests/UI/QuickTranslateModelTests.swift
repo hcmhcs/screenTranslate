@@ -150,6 +150,23 @@ final class QuickTranslateModelTests: XCTestCase {
         XCTAssertTrue(model.didCopyResult)
     }
 
+    func test_adoptSettingsLanguages_followsSettingsUntilUserChanges() {
+        let model = makeModel(source: "en", target: "ko")
+
+        // 사용자가 손대기 전: 설정 변경을 따른다
+        model.adoptSettingsLanguages(source: "auto", target: "ja")
+        XCTAssertEqual(model.sourceLanguageCode, "auto")
+        XCTAssertEqual(model.targetLanguageCode, "ja")
+        XCTAssertFalse(model.userAdjustedLanguages)
+
+        // 사용자가 패널에서 바꾼 뒤: 설정을 따르지 않는다
+        model.targetLanguageCode = "fr"
+        XCTAssertTrue(model.userAdjustedLanguages)
+        model.adoptSettingsLanguages(source: "en", target: "ko")
+        XCTAssertEqual(model.sourceLanguageCode, "auto")
+        XCTAssertEqual(model.targetLanguageCode, "fr")
+    }
+
     func test_resetForNewSession_clearsTextButKeepsLanguages() async {
         provider.translatedText = "안녕"
         let model = makeModel(source: "en", target: "ko")

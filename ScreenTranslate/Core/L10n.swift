@@ -32,6 +32,7 @@ nonisolated enum L10n {
     static var copy: String { s("Copy", ko: "복사") }
     static var close: String { s("Close", ko: "닫기") }
     static var lowConfidence: String { s("Low recognition confidence", ko: "인식 정확도가 낮습니다") }
+    static var translationSuperseded: String { s("Cancelled because another translation started.", ko: "다른 번역이 시작되어 취소되었습니다.") }
     static var translationTimedOut: String { s("Translation timed out. Please try again.", ko: "번역 응답이 없어 시간이 초과되었습니다. 다시 시도해주세요.") }
     static var apiKeySaveFailed: String { s("Couldn't save the API key to Keychain. Unlock your keychain and try again.", ko: "API 키를 키체인에 저장하지 못했습니다. 키체인 잠금을 해제한 뒤 다시 시도해주세요.") }
     static var historyNotPersisted: String { s("History can't be saved right now. Translations will be lost when the app quits.", ko: "지금은 히스토리를 저장할 수 없습니다. 앱을 종료하면 번역 기록이 사라집니다.") }

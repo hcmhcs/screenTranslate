@@ -11,10 +11,13 @@ nonisolated protocol LanguageStatusChecking: Sendable {
 }
 
 /// Apple Translation의 LanguageAvailability를 그대로 쓰는 기본 구현.
-/// LanguageAvailability는 Sendable이 아니므로 호출마다 임시로 만든다 (값 타입, 생성 비용 없음).
+/// LanguageAvailability는 클래스이고 Sendable 선언이 없지만 async API로 어느 컨텍스트에서든
+/// 호출하도록 설계된 객체라, 인스턴스 하나를 재사용한다 (호출마다 생성하지 않는다).
 nonisolated struct AppleLanguageStatusChecker: LanguageStatusChecking {
+    nonisolated(unsafe) private let availability = LanguageAvailability()
+
     func status(from source: Locale.Language, to target: Locale.Language) async -> LanguageAvailability.Status {
-        await LanguageAvailability().status(from: source, to: target)
+        await availability.status(from: source, to: target)
     }
 }
 

@@ -6,8 +6,8 @@ import Translation
 /// 앱 UI 계층에 항상 존재하며 번역 요청을 처리한다.
 ///
 /// 동시성 규칙 (C1/C2):
-/// - 한 번에 하나의 요청만 처리한다. 새 요청이 오면 이전 요청은 CancellationError로 끝난다.
-///   (QuickTranslate와 OCR/드래그 번역이 동시에 요청하면 먼저 진행 중이던 쪽이 취소된다)
+/// - 한 번에 하나의 요청만 처리한다. 새 요청이 오면 이전 요청은 TranslationError.superseded로 끝난다.
+///   (QuickTranslate와 OCR/드래그 번역이 동시에 요청하면 먼저 진행 중이던 쪽이 밀려나고, 그쪽 팝업에 이유가 표시된다)
 /// - 호출 Task가 취소되면 continuation을 즉시 CancellationError로 resume한다.
 /// - `.translationTask` 콜백이 오지 않거나 세션이 응답하지 않으면 `timeout` 후 실패로 끝난다.
 /// - 모든 완료 경로는 `finish(_:with:)` 하나로 모이며, 요청 ID가 일치할 때 한 번만 resume한다.
@@ -45,8 +45,10 @@ final class TranslationBridge {
 
     /// async/await 인터페이스로 번역을 요청한다.
     func translate(text: String, from source: Locale.Language?, to target: Locale.Language) async throws -> String {
-        // 이전 요청이 남아 있으면 취소로 끝낸다
-        finish(requestID, with: .failure(CancellationError()))
+        // 이전 요청이 남아 있으면 "밀려남"으로 끝낸다. CancellationError가 아니라 전용 에러를 쓰는 이유:
+        // 다른 코디네이터(예: 빠른 번역)가 밀어낸 경우 그쪽 팝업은 취소된 적이 없으므로 조용히 사라지면 안 되고
+        // 이유를 보여줘야 한다. 같은 코디네이터의 재실행이면 실행 토큰이 이 에러를 무시한다.
+        finish(requestID, with: .failure(TranslationError.superseded))
 
         let id = UUID()
         requestID = id
@@ -71,10 +73,10 @@ final class TranslationBridge {
                     self.configuration = TranslationSession.Configuration(source: source, target: target)
                 }
 
-                self.timeoutTask = Task { [timeout] in
+                self.timeoutTask = Task { [weak self, timeout] in
                     try? await Task.sleep(for: timeout)
                     guard !Task.isCancelled else { return }
-                    self.finish(id, with: .failure(TranslationError.translationFailed(L10n.translationTimedOut)))
+                    self?.finish(id, with: .failure(TranslationError.translationFailed(L10n.translationTimedOut)))
                 }
             }
         } onCancel: {
@@ -86,17 +88,23 @@ final class TranslationBridge {
 
     /// .translationTask의 콜백에서 호출된다.
     func handleSession(_ session: TranslationSession) {
-        guard continuation != nil, let text = pendingText else { return }
+        guard continuation != nil else { return }
         let id = requestID
+        guard let text = pendingText else {
+            // continuation과 pendingText는 항상 함께 설정된다. 불변식이 깨지면 타임아웃을 기다리지 말고 즉시 실패
+            finish(id, with: .failure(TranslationError.translationFailed(L10n.noTextToTranslate)))
+            return
+        }
         // 같은 요청에 대해 콜백이 두 번 오면(SwiftUI 재렌더) 두 번째는 무시
         guard sessionRequestID != id else { return }
         sessionRequestID = id
 
-        sessionTask = Task {
+        sessionTask = Task { [weak self] in
             do {
                 let response = try await session.translate(text)
-                self.finish(id, with: .success(response.targetText))
+                self?.finish(id, with: .success(response.targetText))
             } catch {
+                guard let self else { return }
                 if self.configuration?.source == nil {
                     // 자동 감지 모드에서 실패 — 짧은 텍스트 등으로 언어 판별 불가
                     self.finish(id, with: .failure(TranslationError.autoDetectFailed(error.localizedDescription)))

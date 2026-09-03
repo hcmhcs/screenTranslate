@@ -14,9 +14,16 @@ final class QuickTranslateModel {
 
     var inputText = ""
     /// "auto"이면 자동 감지
-    var sourceLanguageCode: String
-    var targetLanguageCode: String
+    var sourceLanguageCode: String {
+        didSet { if sourceLanguageCode != oldValue { userAdjustedLanguages = true } }
+    }
+    var targetLanguageCode: String {
+        didSet { if targetLanguageCode != oldValue { userAdjustedLanguages = true } }
+    }
     private(set) var didCopyResult = false
+
+    /// 사용자가 패널에서 언어를 직접 바꿨는지. 바꾼 적이 없으면 패널을 열 때 설정의 기본 언어를 따른다.
+    @ObservationIgnored private(set) var userAdjustedLanguages = false
 
     @ObservationIgnored private let historyManager: TranslationHistoryManager
     @ObservationIgnored private let autoCopyEnabled: () -> Bool
@@ -117,6 +124,14 @@ final class QuickTranslateModel {
         guard case .completed(let result) = coordinator.state else { return }
         copyToClipboard(result.translatedText)
         showCopyFeedback()
+    }
+
+    /// 패널을 열 때 호출: 사용자가 패널에서 언어를 바꾼 적이 없으면 설정의 기본 언어를 따른다.
+    func adoptSettingsLanguages(source: String, target: String) {
+        guard !userAdjustedLanguages else { return }
+        sourceLanguageCode = source
+        targetLanguageCode = target
+        userAdjustedLanguages = false  // didSet이 켠 플래그를 되돌린다 — 설정을 따른 것이지 사용자가 바꾼 게 아니다
     }
 
     /// 패널을 닫을 때: 입력·결과·진행 중 작업을 비운다. 언어 선택은 유지한다.

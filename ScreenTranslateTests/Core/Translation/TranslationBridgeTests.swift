@@ -53,11 +53,11 @@ final class TranslationBridgeTests: XCTestCase {
 
         do {
             _ = try await first.value
-            XCTFail("이전 요청은 취소되어야 한다")
-        } catch is CancellationError {
-            // 기대 동작
+            XCTFail("이전 요청은 밀려나야 한다")
+        } catch ScreenTranslate.TranslationError.superseded {
+            // 기대 동작: 취소가 아니라 "밀려남" — 다른 코디네이터의 팝업이 이유를 보여줄 수 있다
         } catch {
-            XCTFail("CancellationError여야 한다: \(error)")
+            XCTFail("TranslationError.superseded여야 한다: \(error)")
         }
         XCTAssertEqual(bridge.pendingText, "two")
         XCTAssertTrue(bridge.isTranslating)

@@ -100,11 +100,11 @@ final class TranslationCoordinatorTests: XCTestCase {
         await waitUntil { gated.pendingCount == 2 }
         XCTAssertEqual(sut.state, .translating)
 
-        // 첫 실행이 뒤늦게 CancellationError로 깨어난다 (실제 TranslationBridge 동작)
-        gated.resumeFirst(with: .failure(CancellationError()))
-        try? await Task.sleep(for: .milliseconds(50))
+        // 첫 실행이 뒤늦게 "밀려남"으로 깨어난다 (실제 TranslationBridge 동작)
+        gated.resumeFirst(with: .failure(TranslationError.superseded))
+        await waitUntil { gated.completedCalls == 1 }  // 첫 실행의 catch가 처리된 뒤
 
-        // 새 실행의 상태(.translating)가 .idle로 덮어써지면 안 된다
+        // 새 실행의 상태(.translating)가 .idle/.failed로 덮어써지면 안 된다
         XCTAssertEqual(sut.state, .translating)
 
         gated.resumeFirst(with: .success("두 번째"))
@@ -128,7 +128,7 @@ final class TranslationCoordinatorTests: XCTestCase {
 
         // 취소 후 뒤늦게 실패로 깨어나도 .failed로 바뀌면 안 된다
         gated.resumeFirst(with: .failure(TranslationError.translationFailed("late")))
-        try? await Task.sleep(for: .milliseconds(50))
+        await waitUntil { gated.completedCalls == 1 }
         XCTAssertEqual(sut.state, .idle)
     }
 

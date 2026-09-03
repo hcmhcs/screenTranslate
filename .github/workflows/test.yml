@@ -25,6 +25,8 @@ jobs:
         with:
           path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
           key: ${{ runner.os }}-spm-${{ hashFiles('ScreenTranslate.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
 
       - name: Run unit tests
         run: |
@@ -38,7 +40,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee xcodebuild.log \
-            | grep -E "error:|Test case .* failed|Executed|\*\* TEST" || true
+            | grep -E "error:|Test case .* failed|\*\* TEST" || true
           grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
 
       - name: Upload log on failure

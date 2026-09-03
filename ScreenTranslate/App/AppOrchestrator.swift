@@ -112,6 +112,10 @@ final class AppOrchestrator {
             KeyboardShortcuts.disable(.dragTranslate)
         }
         installDoubleCopyMonitor()  // 항상 설치, 콜백에서 모드 확인
+        // 권한 없이 설치된 모니터는 이벤트를 받지 못한다 — doubleCopy 설정 상태로 켜졌으면 권한 획득을 기다렸다 재설치 (M3)
+        if AppSettings.shared.dragTranslateMode == "doubleCopy", !TextGrabber.isAccessibilityTrusted {
+            reinstallDoubleCopyMonitorWhenTrusted()
+        }
 
         KeyboardShortcuts.onKeyUp(for: .quickTranslate) { [weak self] in
             Task { @MainActor in
@@ -132,9 +136,9 @@ final class AppOrchestrator {
     func startTranslation() {
         // 오버레이가 이미 표시 중이거나 준비 중이면 무시 (중복 호출 방지)
         guard !isSelectingRegion, overlayWindow == nil else { return }
-        isSelectingRegion = true
 
         cancelCurrentWork()
+        isSelectingRegion = true
 
         // 권한 확인
         Task {
@@ -188,7 +192,7 @@ final class AppOrchestrator {
         quickTranslateWindow?.showPanel()
     }
 
-    /// 진행 중인 번역 작업을 취소하고 팝업을 닫는다.
+    /// 진행 중인 번역 작업을 취소하고 팝업·영역 선택 오버레이를 닫는다.
     private func cancelCurrentWork() {
         processingTask?.cancel()
         processingTask = nil
@@ -196,6 +200,9 @@ final class AppOrchestrator {
         removeClickOutsideMonitor()
         popupWindow?.close()
         popupWindow = nil
+        overlayWindow?.close()
+        overlayWindow = nil
+        isSelectingRegion = false
     }
 
     /// 번역 상태를 관찰하고 완료 시 히스토리 기록 + 자동복사를 수행한다.
@@ -250,11 +257,12 @@ final class AppOrchestrator {
         }
     }
 
-    /// 팝업을 만들고 닫힘 훅을 연결한다. 팝업이 어떤 경로로든 닫히면 외부 클릭 모니터를 제거한다.
+    /// 팝업을 만들고 닫힘 훅을 연결한다. 팝업이 어떤 경로로든 닫히면 **그 팝업의** 외부 클릭 모니터를 제거한다.
     private func makePopup() -> TranslationPopupWindow {
         let popup = TranslationPopupWindow()
-        popup.onDidClose = { [weak self] in
-            self?.removeClickOutsideMonitor()
+        popup.onDidClose = { [weak self, weak popup] in
+            guard let popup else { return }
+            self?.removeClickOutsideMonitor(ownedBy: popup)
         }
         return popup
     }
@@ -479,8 +487,12 @@ final class AppOrchestrator {
 
     /// H5: 팝업 외부 클릭 시 닫기 — 글로벌 마우스 이벤트 모니터
     /// 글로벌 모니터 콜백은 MainActor 보장이 없으므로 Task로 디스패치한다.
+    /// 현재 클릭 모니터가 감시하는 팝업 — 낡은 팝업이 닫힐 때 새 팝업의 모니터를 지우지 않기 위해 기억한다
+    private weak var clickMonitorOwner: TranslationPopupWindow?
+
     private func installClickOutsideMonitor(for panel: TranslationPopupWindow) {
         removeClickOutsideMonitor()
+        clickMonitorOwner = panel
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self, weak panel] _ in
             Task { @MainActor in
                 guard let panel, panel.isVisible else { return }
@@ -498,6 +510,13 @@ final class AppOrchestrator {
             NSEvent.removeMonitor(monitor)
             clickMonitor = nil
         }
+        clickMonitorOwner = nil
+    }
+
+    /// 지정한 팝업이 소유한 모니터일 때만 제거한다.
+    private func removeClickOutsideMonitor(ownedBy panel: TranslationPopupWindow) {
+        guard clickMonitorOwner === panel else { return }
+        removeClickOutsideMonitor()
     }
 
     // MARK: - 온보딩 윈도우
@@ -613,13 +632,21 @@ final class AppOrchestrator {
     // MARK: - 히스토리 윈도우
 
     private var historyWindow: NSWindow?
+    /// 같은 기록을 연달아 요청해도 펼침이 다시 일어나도록 요청마다 증가시킨다
+    private var historyExpansionRequest = 0
 
     func showHistory(expandingRecord recordID: UUID? = nil) {
+        if recordID != nil { historyExpansionRequest += 1 }
         if let existing = historyWindow, existing.isVisible {
             // 기존 윈도우가 열려있으면 rootView를 교체하여 initialExpandedID 반영
             if let recordID {
                 (existing.contentView as? NSHostingView<HistoryView>)?.rootView =
-                    HistoryView(historyManager: historyManager, initialExpandedID: recordID, isInMemory: historyIsInMemory)
+                    HistoryView(
+                        historyManager: historyManager,
+                        initialExpandedID: recordID,
+                        isInMemory: historyIsInMemory,
+                        expansionRequest: historyExpansionRequest
+                    )
             }
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -636,7 +663,12 @@ final class AppOrchestrator {
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(
-            rootView: HistoryView(historyManager: historyManager, initialExpandedID: recordID, isInMemory: historyIsInMemory)
+            rootView: HistoryView(
+                historyManager: historyManager,
+                initialExpandedID: recordID,
+                isInMemory: historyIsInMemory,
+                expansionRequest: historyExpansionRequest
+            )
         )
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
