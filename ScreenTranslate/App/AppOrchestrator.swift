@@ -146,8 +146,7 @@ final class AppOrchestrator {
             }
 
             // 현재 마우스 위치의 디스플레이 감지
-            let mouseLocation = NSEvent.mouseLocation
-            currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+            currentScreen = NSScreen.underMouse
 
             overlayWindow = SelectionOverlayWindow()
             overlayWindow?.show { [weak self] rect in
@@ -261,47 +260,14 @@ final class AppOrchestrator {
     }
 
     private func processDragTranslation() async {
-        coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
-        coordinator.targetLanguage = AppSettings.shared.targetLanguage
-
-        let mouseLocation = NSEvent.mouseLocation
-        currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+        currentScreen = NSScreen.underMouse
 
         guard let selectedText = await TextGrabber.getSelectedText(),
               !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            let popup = makePopup()
-            self.popupWindow = popup
-            let cursorRect = cursorScreenRect()
-            popup.show(state: .failed(L10n.noSelectedText), near: cursorRect, on: currentScreen)
-            installClickOutsideMonitor(for: popup)
+            showFailurePopup(L10n.noSelectedText)
             return
         }
-
-        let popup = popupWindow ?? makePopup()
-        self.popupWindow = popup
-        let cursorRect = cursorScreenRect()
-
-        popup.show(state: .translating, near: cursorRect, on: currentScreen)
-
-        do {
-            coordinator.startProcessing(text: selectedText)
-            try await observeAndRecord(
-                popup: popup,
-                rect: cursorRect,
-                telemetryEvent: "dragTranslationCompleted",
-                telemetryParameters: ["trigger": "shortcut"],
-                sourceTextFallback: selectedText
-            )
-        } catch is CancellationError {
-            // 취소 시 조용히 종료
-        } catch {
-            popup.updateState(
-                .failed(error.localizedDescription),
-                near: cursorRect,
-                on: currentScreen
-            )
-            installClickOutsideMonitor(for: popup)
-        }
+        await runTranslation(.text(selectedText, trigger: "shortcut"))
     }
 
     /// 마우스 커서 위치를 기반으로 팝업 배치용 가상 rect를 생성한다.
@@ -423,76 +389,90 @@ final class AppOrchestrator {
     }
 
     private func processClipboardTranslation() async {
-        coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
-        coordinator.targetLanguage = AppSettings.shared.targetLanguage
-
-        let mouseLocation = NSEvent.mouseLocation
-        currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+        currentScreen = NSScreen.underMouse
 
         // 클립보드에서 텍스트 읽기
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
               !clipboardText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            let popup = makePopup()
-            self.popupWindow = popup
-            let cursorRect = cursorScreenRect()
-            popup.show(state: .failed(L10n.noClipboardText), near: cursorRect, on: currentScreen)
-            installClickOutsideMonitor(for: popup)
+            showFailurePopup(L10n.noClipboardText)
             return
         }
-
-        let popup = popupWindow ?? makePopup()
-        self.popupWindow = popup
-        let cursorRect = cursorScreenRect()
-
-        popup.show(state: .translating, near: cursorRect, on: currentScreen)
-
-        do {
-            coordinator.startProcessing(text: clipboardText)
-            try await observeAndRecord(
-                popup: popup,
-                rect: cursorRect,
-                telemetryEvent: "dragTranslationCompleted",
-                telemetryParameters: ["trigger": "doubleCopy"],
-                sourceTextFallback: clipboardText
-            )
-        } catch is CancellationError {
-            // 취소 시 조용히 종료
-        } catch {
-            popup.updateState(
-                .failed(error.localizedDescription),
-                near: cursorRect,
-                on: currentScreen
-            )
-            installClickOutsideMonitor(for: popup)
-        }
+        await runTranslation(.text(clipboardText, trigger: "doubleCopy"))
     }
 
     private func processCapture(rect: CGRect) async {
+        await runTranslation(.capture(rect))
+    }
+
+    // MARK: - 번역 실행 (캡처 / 텍스트 공통 경로)
+
+    /// 번역 입력. 캡처는 OCR을 거치고, 텍스트는 바로 번역한다.
+    private enum TranslationInput {
+        case capture(CGRect)
+        /// trigger: 텔레메트리용 ("shortcut" | "doubleCopy")
+        case text(String, trigger: String)
+    }
+
+    /// 커서 근처에 실패 메시지 팝업을 띄운다 (번역할 텍스트를 얻지 못한 경우).
+    private func showFailurePopup(_ message: String) {
+        let popup = makePopup()
+        popupWindow = popup
+        let cursorRect = cursorScreenRect()
+        popup.show(state: .failed(message), near: cursorRect, on: currentScreen)
+        installClickOutsideMonitor(for: popup)
+    }
+
+    /// 캡처·드래그·클립보드 번역의 공통 경로: 팝업 표시 → 파이프라인 시작 → 상태 관찰·기록.
+    private func runTranslation(_ input: TranslationInput) async {
         coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
         coordinator.targetLanguage = AppSettings.shared.targetLanguage
 
         let popup = popupWindow ?? makePopup()
-        self.popupWindow = popup
+        popupWindow = popup
 
-        popup.show(state: .recognizing, near: rect, on: currentScreen)
+        let rect: CGRect
+        let telemetryEvent: String
+        var telemetryParameters: [String: String] = [:]
+        let sourceTextFallback: String?
+        switch input {
+        case .capture(let captureRect):
+            rect = captureRect
+            telemetryEvent = "translationCompleted"
+            sourceTextFallback = nil
+            popup.show(state: .recognizing, near: rect, on: currentScreen)
+        case .text(let text, let trigger):
+            rect = cursorScreenRect()
+            telemetryEvent = "dragTranslationCompleted"
+            telemetryParameters["trigger"] = trigger
+            sourceTextFallback = text
+            popup.show(state: .translating, near: rect, on: currentScreen)
+        }
 
         do {
-            let image = try await capturer.capture(rect: rect, screen: currentScreen)
-            coordinator.startProcessing(image: image, preprocessOCR: AppSettings.shared.ocrTextPreprocessing)
+            switch input {
+            case .capture(let captureRect):
+                let image = try await capturer.capture(rect: captureRect, screen: currentScreen)
+                coordinator.startProcessing(image: image, preprocessOCR: AppSettings.shared.ocrTextPreprocessing)
+            case .text(let text, _):
+                coordinator.startProcessing(text: text)
+            }
             try await observeAndRecord(
                 popup: popup,
                 rect: rect,
-                telemetryEvent: "translationCompleted",
-                sourceTextFallback: nil
+                telemetryEvent: telemetryEvent,
+                telemetryParameters: telemetryParameters,
+                sourceTextFallback: sourceTextFallback
             )
         } catch is CancellationError {
             // 취소 시 조용히 종료
         } catch {
-            popup.updateState(
-                .failed(L10n.captureError(error.localizedDescription)),
-                near: rect,
-                on: currentScreen
-            )
+            let message: String
+            if case .capture = input {
+                message = L10n.captureError(error.localizedDescription)
+            } else {
+                message = error.localizedDescription
+            }
+            popup.updateState(.failed(message), near: rect, on: currentScreen)
             installClickOutsideMonitor(for: popup)
         }
     }
@@ -586,7 +566,7 @@ final class AppOrchestrator {
             backing: .buffered,
             defer: false
         )
-        window.title = L10n.settingsMenu.replacingOccurrences(of: "...", with: "")
+        window.title = L10n.settingsWindowTitle
         window.isReleasedWhenClosed = false
         let hostingView = NSHostingView(rootView: SettingsView())
         window.contentView = hostingView

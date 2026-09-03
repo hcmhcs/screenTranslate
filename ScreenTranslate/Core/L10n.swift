@@ -19,6 +19,7 @@ nonisolated enum L10n {
     static var showAll: String { s("Show All...", ko: "모두 보기...") }
     static var aboutApp: String { s("About ScreenTranslate", ko: "ScreenTranslate 정보") }
     static var settingsMenu: String { s("Settings...", ko: "설정...") }
+    static var settingsWindowTitle: String { s("Settings", ko: "설정") }
     static var checkForUpdates: String { s("Check for Updates...", ko: "업데이트 확인...") }
     static var quit: String { s("Quit", ko: "종료") }
 
@@ -115,6 +116,15 @@ nonisolated enum L10n {
     // MARK: - About Links
 
     static var aboutWebsite: String { s("Website", ko: "웹사이트") }
+    static func aboutVersion(_ version: String) -> String { s("Version \(version)", ko: "버전 \(version)") }
+    static var aboutCopyright: String { s("Copyright \u{00A9} 2026 hanchangmin", ko: "\u{00A9} 2026 hanchangmin") }
+    static var statusInstalled: String { s("Installed", ko: "설치됨") }
+    static var statusDownloadable: String { s("Not installed. Available to download", ko: "미설치, 다운로드 가능") }
+    static var statusUnsupported: String { s("Not supported", ko: "지원되지 않음") }
+    static var engineReady: String { s("Ready to use", ko: "사용 가능") }
+    static var engineNeedsKey: String { s("API key required", ko: "API 키 필요") }
+    static var historySucceeded: String { s("Translation succeeded", ko: "번역 성공") }
+    static var historyFailed: String { s("Translation failed", ko: "번역 실패") }
     static var aboutEnginesGuide: String { s("Translation Engines Guide", ko: "번역 엔진 가이드") }
     static var aboutPrivacyPolicy: String { s("Privacy Policy", ko: "개인정보처리방침") }
 
@@ -271,11 +281,7 @@ nonisolated enum L10n {
             return minutesAgo(Int(seconds / 60))
         }
 
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateStyle = .none
-        timeFormatter.timeStyle = .short
-
-        let timeString = timeFormatter.string(from: date)
+        let timeString = shortTimeFormatter.string(from: date)
 
         if calendar.isDateInToday(date) {
             return "\(today) \(timeString)"
@@ -284,10 +290,23 @@ nonisolated enum L10n {
             return "\(yesterday) \(timeString)"
         }
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "M/d"
-        return "\(dateFormatter.string(from: date)) \(timeString)"
+        return "\(monthDayFormatter.string(from: date)) \(timeString)"
     }
+
+    /// 호출마다 DateFormatter를 만들면 히스토리 50행 스크롤 시 수백 개가 생성된다. 캐시한다.
+    private static let shortTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    /// "M/d" 고정 포맷은 일/월 순서를 쓰는 로케일에서 뒤집혀 읽힌다. 템플릿으로 로케일에 맞춘다.
+    private static let monthDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("Md")
+        return formatter
+    }()
 
     // MARK: - Drag Translation (Beta)
 
