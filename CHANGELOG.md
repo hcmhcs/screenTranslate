@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Copied" badge no longer disappears early when the copy button is pressed repeatedly
 - About window version and copyright text are localized
 - Status icons in Settings and History now have accessibility labels
+- When another translation starts while one is still running, the earlier popup now explains why it stopped instead of vanishing
 
 ### Changed
 
