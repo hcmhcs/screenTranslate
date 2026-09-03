@@ -31,6 +31,7 @@ nonisolated enum L10n {
     static var copy: String { s("Copy", ko: "복사") }
     static var close: String { s("Close", ko: "닫기") }
     static var lowConfidence: String { s("Low recognition confidence", ko: "인식 정확도가 낮습니다") }
+    static var translationTimedOut: String { s("Translation timed out. Please try again.", ko: "번역 응답이 없어 시간이 초과되었습니다. 다시 시도해주세요.") }
     static var originalText: String { s("Original", ko: "원문") }
 
     // MARK: - Quick Translate
