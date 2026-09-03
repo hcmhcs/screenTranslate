@@ -217,8 +217,9 @@ struct OnboardingView: View {
             }
             .pickerStyle(.menu)
             .frame(width: 200)
-            .onChange(of: selectedTargetCode) { _, newValue in
-                AppSettings.shared.targetLanguageCode = newValue
+            .onChange(of: selectedTargetCode) { _, _ in
+                // 설정 저장은 finishOnboarding()에서만 한다 (H3).
+                // 여기서 저장하면 X로 닫아도 "기존 사용자"로 판정되어 온보딩이 영영 뜨지 않는다.
                 Task { await packManager.refreshAllStatuses() }
             }
         }
