@@ -15,7 +15,8 @@ enum TextGrabber {
 
     /// 권한 요청 다이얼로그 트리거 (시스템 설정 유도)
     static func requestAccessibilityPermission() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        // kAXTrustedCheckOptionPrompt는 전역 var라 strict concurrency에서 경고 — 문서화된 키 문자열을 직접 쓴다
+        let options = ["AXTrustedCheckOptionPrompt" as CFString: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
 

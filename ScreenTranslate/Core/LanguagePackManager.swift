@@ -17,13 +17,14 @@ final class LanguagePackManager {
         case unsupported
     }
 
-    private let availability = LanguageAvailability()
-
     /// 모든 언어의 개별 설치 상태를 교차 확인으로 판별한다.
     ///
     /// `LanguageAvailability.status(from:to:)`는 **언어 쌍** 상태를 반환하므로,
     /// 개별 언어 설치 여부를 알기 위해 여러 쌍을 교차 확인한다.
     /// 어떤 쌍이든 `.installed`이면 해당 쌍의 양쪽 언어 모두 개별 설치된 것으로 판단한다.
+    ///
+    /// LanguageAvailability는 Sendable이 아니라 MainActor 프로퍼티로 두면 status() 호출마다
+    /// 격리 경계를 넘는다는 경고가 난다. 값 타입이고 생성이 가벼우므로 호출마다 임시로 만든다.
     func refreshAllStatuses() async {
         let langs = AppSettings.supportedLanguages
         var installedSet: Set<String> = []
@@ -32,7 +33,7 @@ final class LanguagePackManager {
         let enLang = Locale.Language(identifier: "en")
         for lang in langs where lang.code != "en" {
             let target = Locale.Language(identifier: lang.code)
-            let status = await availability.status(from: enLang, to: target)
+            let status = await LanguageAvailability().status(from: enLang, to: target)
             if status == .installed {
                 installedSet.insert("en")
                 installedSet.insert(lang.code)
@@ -46,7 +47,7 @@ final class LanguagePackManager {
                 let from = Locale.Language(identifier: langs[i].code)
                 for j in 0..<langs.count where i != j {
                     let to = Locale.Language(identifier: langs[j].code)
-                    let status = await availability.status(from: from, to: to)
+                    let status = await LanguageAvailability().status(from: from, to: to)
                     if status == .installed {
                         installedSet.insert(langs[i].code)
                         installedSet.insert(langs[j].code)
@@ -66,7 +67,7 @@ final class LanguagePackManager {
                 if let ref = installedSet.sorted().first {
                     let from = Locale.Language(identifier: lang.code)
                     let to = Locale.Language(identifier: ref)
-                    let status = await availability.status(from: from, to: to)
+                    let status = await LanguageAvailability().status(from: from, to: to)
                     languageStatuses[lang.code] = (status == .unsupported) ? .unsupported : .available
                 } else {
                     // 어떤 언어도 설치되지 않은 경우

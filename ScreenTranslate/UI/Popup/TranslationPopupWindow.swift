@@ -254,7 +254,10 @@ final class TranslationPopupWindow: NSPanel {
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 self.animator().setFrame(newFrame, display: true)
             }, completionHandler: { [weak self] in
-                self?.isUpdatingPosition = false
+                // NSAnimationContext 완료 핸들러는 메인 스레드에서 불리지만 @Sendable로 선언되어 있다
+                MainActor.assumeIsolated {
+                    self?.isUpdatingPosition = false
+                }
             })
         } else {
             setFrame(newFrame, display: true)
