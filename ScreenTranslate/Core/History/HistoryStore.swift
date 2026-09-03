@@ -10,7 +10,10 @@ private let logger = Logger(subsystem: "com.app.screentranslate", category: "his
 /// 쓴다. 다른 앱과 겹칠 수 있는 공용 경로이고, 기존 복구 코드는 `URL.path()`의 퍼센트 인코딩 때문에
 /// 파일을 지우지 못해 항상 인메모리로 떨어졌다. 앱 전용 폴더로 옮기고 복구 경로를 고친다.
 enum HistoryStore {
+    /// 삭제 대상 (SQLite 3종)
     private static let storeSuffixes = ["", "-shm", "-wal"]
+    /// 복사 대상 — -shm은 제외
+    private static let copiedSuffixes = ["", "-wal"]
 
     /// 앱 전용 위치: ~/Library/Application Support/ScreenTranslate/history.store
     static var defaultStoreURL: URL {
@@ -24,24 +27,23 @@ enum HistoryStore {
         URL.applicationSupportDirectory.appending(path: "default.store")
     }
 
-    /// 기존 위치의 스토어가 새 위치보다 최신이면(새 위치가 없는 경우 포함) 세 파일(.store/-shm/-wal)을 복사한다.
-    /// 기존 파일은 지우지 않는다 (다른 앱의 파일일 가능성을 배제할 수 없다).
+    /// 새 위치에 스토어가 없을 때 **한 번만** 기존 위치의 `.store`와 `-wal`을 복사한다.
     ///
-    /// 수정 시각을 비교하는 이유: 새 버전을 한 번 실행한 뒤 다시 구버전을 쓰면(개발 중 디버그 실행 등)
-    /// 기존 스토어에 기록이 더 쌓인다. 그 경우 다음 실행에서 최신 내용을 다시 가져온다.
-    /// 업그레이드 후에는 구버전이 더 이상 기존 파일을 건드리지 않으므로 재복사가 일어나지 않는다.
+    /// - 목적지가 이미 있으면 어떤 경우에도 건드리지 않는다. 기존 경로(`default.store`)는 다른 앱과
+    ///   공유될 수 있어, 그 파일의 변화를 근거로 우리 스토어를 덮어쓰면 히스토리를 통째로 잃을 수 있다.
+    /// - `-shm`은 SQLite가 열 때마다 다시 만드는 공유 메모리 인덱스라 복사하지 않는다.
+    /// - 기존 파일은 지우지 않는다.
     /// - Returns: 복사가 일어났으면 true
     @discardableResult
     static func migrateLegacyStoreIfNeeded(from legacy: URL, to destination: URL) -> Bool {
         let fm = FileManager.default
-        guard let legacyStamp = latestModification(of: legacy) else { return false }
-        if let destinationStamp = latestModification(of: destination), destinationStamp >= legacyStamp {
+        guard !fm.fileExists(atPath: destination.path(percentEncoded: false)),
+              fm.fileExists(atPath: legacy.path(percentEncoded: false)) else {
             return false
         }
         do {
             try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-            removeStoreFiles(at: destination)
-            for suffix in storeSuffixes {
+            for suffix in copiedSuffixes {
                 let source = sibling(of: legacy, suffix: suffix)
                 guard fm.fileExists(atPath: source.path(percentEncoded: false)) else { continue }
                 try fm.copyItem(at: source, to: sibling(of: destination, suffix: suffix))
@@ -53,15 +55,6 @@ enum HistoryStore {
             removeStoreFiles(at: destination)
             return false
         }
-    }
-
-    /// .store/-shm/-wal 중 가장 최근 수정 시각. 하나도 없으면 nil.
-    private static func latestModification(of url: URL) -> Date? {
-        storeSuffixes.compactMap { suffix -> Date? in
-            let path = sibling(of: url, suffix: suffix).path(percentEncoded: false)
-            let attributes = try? FileManager.default.attributesOfItem(atPath: path)
-            return attributes?[.modificationDate] as? Date
-        }.max()
     }
 
     /// 지정 위치에 컨테이너를 만든다. 열기에 실패하면 파일을 지우고 재생성하고,

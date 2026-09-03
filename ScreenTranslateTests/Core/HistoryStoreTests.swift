@@ -29,9 +29,11 @@ final class HistoryStoreTests: XCTestCase {
         let migrated = HistoryStore.migrateLegacyStoreIfNeeded(from: legacy, to: new)
 
         XCTAssertTrue(migrated)
-        for suffix in ["", "-shm", "-wal"] {
+        for suffix in ["", "-wal"] {
             XCTAssertEqual(try String(contentsOf: sibling(new, suffix), encoding: .utf8), "legacy\(suffix)")
         }
+        // -shm은 SQLite가 다시 만드는 파일이라 복사하지 않는다
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sibling(new, "-shm").path(percentEncoded: false)))
         // 원본은 남겨 둔다
         XCTAssertTrue(FileManager.default.fileExists(atPath: legacy.path(percentEncoded: false)))
     }
@@ -40,38 +42,19 @@ final class HistoryStoreTests: XCTestCase {
         try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path(percentEncoded: false))
     }
 
-    func test_migrate_doesNothingWhenNewStoreIsNewer() throws {
+    func test_migrate_neverTouchesExistingStore_evenIfLegacyIsNewer() throws {
         let dir = try tempDir()
         let legacy = dir.appending(path: "default.store")
         let new = dir.appending(path: "history.store")
-        try Data("legacy".utf8).write(to: legacy)
         try Data("existing".utf8).write(to: new)
-        try setModificationDate(Date(timeIntervalSinceNow: -3600), of: legacy)
-        try setModificationDate(Date(), of: new)
-
-        let migrated = HistoryStore.migrateLegacyStoreIfNeeded(from: legacy, to: new)
-
-        XCTAssertFalse(migrated)
-        XCTAssertEqual(try String(contentsOf: new, encoding: .utf8), "existing")
-    }
-
-    func test_migrate_recopiesWhenLegacyIsNewer() throws {
-        let dir = try tempDir()
-        let legacy = dir.appending(path: "default.store")
-        let new = dir.appending(path: "history.store")
-        try Data("stale copy".utf8).write(to: new)
-        try Data("stale wal".utf8).write(to: sibling(new, "-wal"))
-        try Data("legacy updated".utf8).write(to: legacy)
         try setModificationDate(Date(timeIntervalSinceNow: -3600), of: new)
-        try setModificationDate(Date(timeIntervalSinceNow: -3600), of: sibling(new, "-wal"))
+        try Data("legacy updated".utf8).write(to: legacy)
         try setModificationDate(Date(), of: legacy)
 
         let migrated = HistoryStore.migrateLegacyStoreIfNeeded(from: legacy, to: new)
 
-        XCTAssertTrue(migrated, "구버전이 더 기록했으면 최신 내용을 다시 가져와야 한다")
-        XCTAssertEqual(try String(contentsOf: new, encoding: .utf8), "legacy updated")
-        // 기존 위치에 없는 -wal은 새 위치에서도 지워져 낡은 WAL이 섞이지 않는다
-        XCTAssertFalse(FileManager.default.fileExists(atPath: sibling(new, "-wal").path(percentEncoded: false)))
+        XCTAssertFalse(migrated, "기존 경로는 다른 앱과 공유될 수 있어 목적지가 있으면 절대 덮어쓰지 않는다")
+        XCTAssertEqual(try String(contentsOf: new, encoding: .utf8), "existing")
     }
 
     func test_migrate_doesNothingWhenLegacyMissing() throws {

@@ -30,6 +30,42 @@ final class PasteboardSnapshotTests: XCTestCase {
         XCTAssertEqual(board.data(forType: .tiff), Data([1, 2, 3]))
     }
 
+    func test_restore_preservesTypeOrder() {
+        let board = makeBoard()
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        let item = NSPasteboardItem()
+        item.setData(Data([9]), forType: .tiff)
+        item.setString("text", forType: .string)
+        item.setData(Data([1]), forType: .rtf)
+        board.writeObjects([item])
+        let originalTypes = board.pasteboardItems?.first?.types
+
+        let snapshot = PasteboardSnapshot(of: board)
+        board.clearContents()
+        snapshot.restore(to: board)
+
+        XCTAssertEqual(board.pasteboardItems?.first?.types, originalTypes, "타입 순서는 붙여넣기 우선순위라 보존해야 한다")
+    }
+
+    func test_snapshot_skipsFilePromises() {
+        let board = makeBoard()
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        let item = NSPasteboardItem()
+        item.setString("text", forType: .string)
+        let promiseType = NSPasteboard.PasteboardType("com.apple.pasteboard.promised-file-content-type")
+        item.setData(Data("public.png".utf8), forType: promiseType)
+        board.writeObjects([item])
+
+        let snapshot = PasteboardSnapshot(of: board)
+        board.clearContents()
+        snapshot.restore(to: board)
+
+        XCTAssertEqual(board.string(forType: .string), "text")
+        XCTAssertNil(board.data(forType: promiseType), "복원할 수 없는 프로미스는 스냅샷에서 제외한다")
+    }
+
     func test_restore_emptyBoard_leavesBoardEmpty() {
         let board = makeBoard()
         defer { board.releaseGlobally() }
