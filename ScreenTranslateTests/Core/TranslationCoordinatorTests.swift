@@ -75,15 +75,85 @@ final class TranslationCoordinatorTests: XCTestCase {
         }
     }
 
-    func test_reset_returnsToIdle() async {
+    func test_cancel_returnsToIdle() async {
         mockOCR.recognizedText = "Hello"
         mockTranslation.translatedText = "안녕"
         sut.startProcessing(image: makeBlankImage())
         _ = await waitForTerminalState(sut)
 
-        sut.reset()
+        sut.cancel()
 
         XCTAssertEqual(sut.state, .idle)
+    }
+
+    // MARK: - C1: 취소된 이전 실행이 새 실행의 상태를 덮어쓰면 안 된다
+
+    func test_cancelledPreviousRun_doesNotOverwriteNewRunState() async {
+        let gated = GatedTranslationProvider()
+        sut.updateProvider(gated)
+
+        sut.startProcessing(text: "first")
+        await waitUntil { gated.pendingCount == 1 }
+
+        // 두 번째 실행 시작 → 첫 실행의 Task는 cancel()되지만 translate()에 매달려 있다
+        sut.startProcessing(text: "second")
+        await waitUntil { gated.pendingCount == 2 }
+        XCTAssertEqual(sut.state, .translating)
+
+        // 첫 실행이 뒤늦게 CancellationError로 깨어난다 (실제 TranslationBridge 동작)
+        gated.resumeFirst(with: .failure(CancellationError()))
+        try? await Task.sleep(for: .milliseconds(50))
+
+        // 새 실행의 상태(.translating)가 .idle로 덮어써지면 안 된다
+        XCTAssertEqual(sut.state, .translating)
+
+        gated.resumeFirst(with: .success("두 번째"))
+        let state = await waitForTerminalState(sut)
+        if case .completed(let result) = state {
+            XCTAssertEqual(result.translatedText, "두 번째")
+        } else {
+            XCTFail("completed 상태여야 한다: \(state)")
+        }
+    }
+
+    func test_cancel_thenLateFailure_staysIdle() async {
+        let gated = GatedTranslationProvider()
+        sut.updateProvider(gated)
+
+        sut.startProcessing(text: "first")
+        await waitUntil { gated.pendingCount == 1 }
+
+        sut.cancel()
+        XCTAssertEqual(sut.state, .idle)
+
+        // 취소 후 뒤늦게 실패로 깨어나도 .failed로 바뀌면 안 된다
+        gated.resumeFirst(with: .failure(TranslationError.translationFailed("late")))
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(sut.state, .idle)
+    }
+
+    // MARK: - M11: URLError.cancelled는 취소로 처리
+
+    func test_urlErrorCancelled_isTreatedAsCancellation() async {
+        mockTranslation.errorToThrow = URLError(.cancelled)
+
+        sut.startProcessing(text: "Hello")
+        let state = await waitForTerminalState(sut)
+
+        XCTAssertEqual(state, .idle, "URLError.cancelled는 실패가 아니라 취소로 처리해야 한다")
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        file: StaticString = #file, line: UInt = #line,
+        _ condition: () -> Bool
+    ) async {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if condition() { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("waitUntil 타임아웃", file: file, line: line)
     }
 
     func test_process_passesDetectedLanguageToTranslation() async {
