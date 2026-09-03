@@ -17,6 +17,7 @@ struct OnboardingLogicTests {
     }
 
     @Test("SystemPermissionChecker conforms to PermissionChecking")
+    @MainActor
     func systemPermissionChecker_conforms() {
         let checker: PermissionChecking = SystemPermissionChecker()
         // 테스트 환경에서는 권한 없을 가능성 높음 — 크래시 없이 Bool 반환만 확인

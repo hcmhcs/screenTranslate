@@ -3,6 +3,8 @@ import Foundation
 
 /// translate()를 외부에서 resume할 때까지 매달아 두는 모의 프로바이더.
 /// 취소된 이전 실행이 나중에 깨어나는 상황(C1)을 재현한다.
+/// 테스트 타깃은 기본 MainActor 격리가 아니므로 명시한다 (가변 상태 + Sendable).
+@MainActor
 final class GatedTranslationProvider: TranslationProvider {
     let name = "Gated"
     let requiresAPIKey = false
