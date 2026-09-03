@@ -88,6 +88,10 @@ nonisolated enum L10n {
     static var clear: String { s("Clear", ko: "삭제") }
     static var apiKeyInvalid: String { s("API key is invalid. Please check your key.", ko: "API 키가 유효하지 않습니다. 키를 확인해주세요.") }
     static var quotaExceeded: String { s("API quota exceeded. Please check your plan.", ko: "API 사용량을 초과했습니다. 요금제를 확인해주세요.") }
+    static var networkUnavailable: String { s("No internet connection. Check your network and try again.", ko: "인터넷에 연결되어 있지 않습니다. 네트워크를 확인한 뒤 다시 시도해주세요.") }
+    static var networkTimedOut: String { s("The server took too long to respond. Please try again.", ko: "서버 응답이 너무 오래 걸립니다. 다시 시도해주세요.") }
+    static var serverUnreachable: String { s("Couldn't reach the translation server.", ko: "번역 서버에 연결할 수 없습니다.") }
+    static var invalidServerResponse: String { s("The translation server returned an unexpected response.", ko: "번역 서버가 예상하지 못한 응답을 보냈습니다.") }
     static var regionLabel: String { s("Region", ko: "리전") }
     static var regionPlaceholder: String { s("e.g. koreacentral", ko: "예: koreacentral") }
     static var engineGuide: String { s("Engine setup guide", ko: "엔진 설정 가이드") }
