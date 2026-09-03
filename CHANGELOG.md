@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Popup could stay stuck on "Translating..." forever when a new capture started while the previous translation was still running
+- Translation requests now time out after 30 seconds instead of spinning indefinitely
+- Drag translate could run multiple times per shortcut press after toggling the Cmd+C+C option
+- Cmd+C fallback no longer wipes images, files, or rich text from the clipboard
+- Pressing the capture shortcut twice quickly no longer leaves a stuck full-screen overlay
+- Translation history is now stored in the app's own folder; a corrupted history recovers instead of silently disappearing
+- Closing onboarding with the window button after choosing a language no longer skips onboarding permanently
+- Imported fonts stay in the font list after restart
+- Clicking a recent translation while the history window is open now expands that entry
+- Screen capture excludes the app's own popup so it can't be picked up by OCR
+- DeepL: specifying Chinese or Portuguese as the source language no longer fails with HTTP 400
+- Popup stays below the menu bar and above the Dock when placed near screen edges
+- Clicking without dragging on the selection overlay now cancels it
+- Keychain save failures now show an alert instead of failing silently
+- Cancelled cloud-engine translations no longer leave a failed entry in history
+
+### Changed
+
+- Unit tests run on every push and pull request via GitHub Actions
+- Third-party GitHub Actions are pinned to commit SHAs
+- Strict concurrency checking enabled for the app target
+
 ## [1.5.2] - 2026-03-31
 
 ### Highlights
