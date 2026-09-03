@@ -3,8 +3,8 @@ import Foundation
 import Testing
 @testable import ScreenTranslate
 
-@Suite(.serialized)
-struct FontManagerTests {
+extension SerializedDefaultsSuite {
+@Suite struct FontManagerTests {
 
     @Test("shared singleton exists")
     @MainActor
@@ -74,4 +74,5 @@ struct FontManagerTests {
         #expect(dir.lastPathComponent == "Fonts")
         #expect(dir.pathComponents.contains("ScreenTranslate"))
     }
+}
 }

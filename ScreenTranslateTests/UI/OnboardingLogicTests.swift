@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import ScreenTranslate
 
-@Suite(.serialized)
-struct OnboardingLogicTests {
+extension SerializedDefaultsSuite {
+@Suite struct OnboardingLogicTests {
 
     // MARK: - PermissionChecking 프로토콜
 
@@ -63,4 +63,5 @@ struct OnboardingLogicTests {
         UserDefaults.standard.removeObject(forKey: key)
         #expect(AppSettings.shared.hasCompletedOnboarding == false)
     }
+}
 }
