@@ -8,12 +8,15 @@ private let logger = Logger(subsystem: "com.app.screentranslate", category: "his
 @MainActor
 @Observable
 final class TranslationHistoryManager {
+    /// 컨텍스트만 들고 있으면 컨테이너가 먼저 해제될 때 SwiftData 내부에서 크래시한다. 함께 보관한다.
+    private let modelContainer: ModelContainer
     private let modelContext: ModelContext
 
     /// 최근 기록 (UI 바인딩용)
     var recentRecords: [TranslationRecord] = []
 
     init(modelContainer: ModelContainer) {
+        self.modelContainer = modelContainer
         self.modelContext = modelContainer.mainContext
         fetchRecent()
     }
