@@ -24,12 +24,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clicking without dragging on the selection overlay now cancels it
 - Keychain save failures now show an alert instead of failing silently
 - Cancelled cloud-engine translations no longer leave a failed entry in history
+- Cloud engines (DeepL, Google, Azure) now explain offline, timeout, and unreachable-server errors instead of showing raw error codes
+- Quick Translate keyboard actions (Enter, ⌘⇧C, ⌘/) no longer depend on window focus timing
+- Quick Translate keeps the selected languages when the panel is reopened
+- Language pack status in Settings and onboarding loads in parallel and no longer flickers between states
+- Onboarding shows a clear message for unsupported languages instead of an endless spinner
+- History window can now use the full window size when resized
+- "Copied" badge no longer disappears early when the copy button is pressed repeatedly
+- About window version and copyright text are localized
+- Status icons in Settings and History now have accessibility labels
 
 ### Changed
 
 - Unit tests run on every push and pull request via GitHub Actions
 - Third-party GitHub Actions are pinned to commit SHAs
 - Strict concurrency checking enabled for the app target
+- Date in history timestamps follows the system locale's day/month order
 
 ## [1.5.2] - 2026-03-31
 
