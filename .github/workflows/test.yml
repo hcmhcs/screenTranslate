@@ -1,0 +1,49 @@
+name: Test
+
+# 단위 테스트를 push/PR마다 실행한다.
+# release.yml은 태그 push에서 빌드·배포만 하므로, 이 워크플로가 없으면 깨진 테스트가 눈에 띄지 않는다.
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Cache SPM packages
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('ScreenTranslate.xcodeproj/project.pbxproj') }}
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ScreenTranslate.xcodeproj \
+            -scheme ScreenTranslate \
+            -destination 'platform=macOS' \
+            -only-testing:ScreenTranslateTests \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee xcodebuild.log \
+            | grep -E "error:|Test case .* failed|Executed|\*\* TEST" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
+
+      - name: Upload log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log
