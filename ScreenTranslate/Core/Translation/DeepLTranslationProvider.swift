@@ -26,7 +26,7 @@ final class DeepLTranslationProvider: TranslationProvider {
             "split_sentences": "nonewlines"
         ]
         if let source {
-            body["source_lang"] = LanguageCodeMapper.toDeepLCode(source)
+            body["source_lang"] = LanguageCodeMapper.toDeepLCode(source, asSource: true)
         }
 
         var request = URLRequest(url: URL(string: baseURL)!)
