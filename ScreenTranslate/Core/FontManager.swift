@@ -62,8 +62,9 @@ final class FontManager {
         var entries: [String: Entry]  // key = filename (e.g. "NotoSansKR-Regular.otf")
 
         struct Entry: Codable {
-            let catalogId: String     // e.g. "noto-sans-kr"
-            let displayName: String   // e.g. "Noto Sans KR"
+            var catalogId: String?    // e.g. "noto-sans-kr" — 임포트 폰트는 nil
+            var displayName: String   // e.g. "Noto Sans KR"
+            var source: FontSource?   // nil이면 .downloaded (1.5.2 이하 메타데이터 호환, H4)
         }
     }
 
@@ -189,6 +190,16 @@ final class FontManager {
         try FileManager.default.copyItem(at: sourceURL, to: destURL)
 
         registerSingleFont(at: destURL, source: .imported)
+
+        // H4: source를 기록해 두지 않으면 재시작 시 scanInstalledFonts가 .downloaded로 뭉개
+        // 설정의 "가져온 폰트" 목록에서 사라진다
+        var metadata = loadMetadata()
+        metadata.entries[destURL.lastPathComponent] = FontMetadata.Entry(
+            catalogId: nil,
+            displayName: destURL.deletingPathExtension().lastPathComponent,
+            source: .imported
+        )
+        saveMetadata(metadata)
         logger.info("Imported font from \(sourceURL.lastPathComponent)")
     }
 
@@ -271,9 +282,10 @@ final class FontManager {
 
         let tempURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let delegate = DownloadProgressDelegate(
-                onProgress: { [weak self] fraction in
+                onProgress: { fraction in
+                    // 싱글턴이므로 shared로 접근 — [weak self] 캡처는 Swift 6 모드에서 동시성 에러
                     Task { @MainActor in
-                        self?.downloadProgress = fraction
+                        FontManager.shared.downloadProgress = fraction
                     }
                 },
                 onComplete: { url, error in
@@ -306,7 +318,8 @@ final class FontManager {
         var metadata = loadMetadata()
         metadata.entries[fileName] = FontMetadata.Entry(
             catalogId: catalogFont.id,
-            displayName: catalogFont.name
+            displayName: catalogFont.name,
+            source: .downloaded
         )
         saveMetadata(metadata)
 
@@ -357,7 +370,12 @@ final class FontManager {
         while let fileURL = enumerator.nextObject() as? URL {
             guard fontExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
             let entry = metadata?.entries[fileURL.lastPathComponent]
-            registerSingleFont(at: fileURL, source: source, catalogId: entry?.catalogId, catalogDisplayName: entry?.displayName)
+            registerSingleFont(
+                at: fileURL,
+                source: entry?.source ?? source,
+                catalogId: entry?.catalogId,
+                catalogDisplayName: entry?.displayName
+            )
         }
     }
 
