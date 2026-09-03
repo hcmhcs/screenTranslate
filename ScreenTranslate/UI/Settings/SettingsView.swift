@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var downloadingFontIDs: Set<String> = []
     @State private var showFontError = false
     @State private var fontErrorMessage = ""
+    @State private var showAPIKeyError = false
     @State private var previousFontName = "system"
     @State private var isDownloadingFont = false
     @State private var showFontDownloadConfirm = false
@@ -104,6 +105,9 @@ struct SettingsView: View {
             }
         }
         .alert(fontErrorMessage, isPresented: $showFontError) {
+            Button(L10n.confirm) {}
+        }
+        .alert(L10n.apiKeySaveFailed, isPresented: $showAPIKeyError) {
             Button(L10n.confirm) {}
         }
         .alert(L10n.fontDownloadConfirmTitle, isPresented: $showFontDownloadConfirm) {
@@ -374,8 +378,12 @@ struct SettingsView: View {
                         hasKey: settings.hasDeepLKey,
                         savedLabel: nil,
                         onSave: { key in
-                            try? settings.saveDeepLKey(key)
-                            AppOrchestrator.shared.updateTranslationProvider()
+                            do {
+                                try settings.saveDeepLKey(key)
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            } catch {
+                                showAPIKeyError = true  // M20: 조용히 실패하면 사용자가 키를 반복 입력하게 된다
+                            }
                         },
                         onDelete: {
                             settings.deleteDeepLKey()
@@ -391,8 +399,12 @@ struct SettingsView: View {
                         hasKey: settings.hasGoogleKey,
                         savedLabel: nil,
                         onSave: { key in
-                            try? settings.saveGoogleKey(key)
-                            AppOrchestrator.shared.updateTranslationProvider()
+                            do {
+                                try settings.saveGoogleKey(key)
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            } catch {
+                                showAPIKeyError = true
+                            }
                         },
                         onDelete: {
                             settings.deleteGoogleKey()
@@ -408,11 +420,15 @@ struct SettingsView: View {
                         hasKey: settings.hasAzureKey,
                         savedLabel: settings.azureRegion.map { "\(L10n.apiKeySaved) (\($0))" },
                         onSave: { key in
-                            try? settings.saveAzureKey(key)
-                            let region = azureRegionInput.trimmingCharacters(in: .whitespaces)
-                            settings.azureRegion = region.isEmpty ? nil : region
-                            azureRegionInput = ""
-                            AppOrchestrator.shared.updateTranslationProvider()
+                            do {
+                                try settings.saveAzureKey(key)
+                                let region = azureRegionInput.trimmingCharacters(in: .whitespaces)
+                                settings.azureRegion = region.isEmpty ? nil : region
+                                azureRegionInput = ""
+                                AppOrchestrator.shared.updateTranslationProvider()
+                            } catch {
+                                showAPIKeyError = true
+                            }
                         },
                         onDelete: {
                             settings.deleteAzureKey()

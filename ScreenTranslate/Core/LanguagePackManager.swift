@@ -62,7 +62,8 @@ final class LanguagePackManager {
                 languageStatuses[lang.code] = .installed
             } else {
                 // 미설치 언어: 설치된 언어와 쌍으로 지원 여부 확인
-                if let ref = installedSet.first {
+                // Set 순회 순서는 실행마다 달라 같은 언어의 판정이 흔들린다 — 정렬해 결정적으로 고른다 (M8)
+                if let ref = installedSet.sorted().first {
                     let from = Locale.Language(identifier: lang.code)
                     let to = Locale.Language(identifier: ref)
                     let status = await availability.status(from: from, to: to)
