@@ -21,29 +21,18 @@ final class AppOrchestrator {
     private let capturer = ScreenCapturer()
     private var currentScreen: NSScreen?
 
-    /// SwiftData 컨테이너 — 히스토리 영구 저장.
-    /// 스키마 마이그레이션 실패 시 기존 데이터를 삭제하고 재생성한다.
-    let modelContainer: ModelContainer = {
-        do {
-            return try ModelContainer(for: TranslationRecord.self)
-        } catch {
-            // DB 손상/마이그레이션 실패 시 기존 데이터 삭제 후 재시도
-            // SwiftData는 default.store + WAL/SHM 파일을 함께 사용하므로 모두 삭제
-            let storeURL = URL.applicationSupportDirectory
-                .appending(path: "default.store")
-            for suffix in ["", "-shm", "-wal"] {
-                let fileURL = URL(fileURLWithPath: storeURL.path() + suffix)
-                try? FileManager.default.removeItem(at: fileURL)
-            }
-            do {
-                return try ModelContainer(for: TranslationRecord.self)
-            } catch {
-                // 최후 수단: 인메모리 컨테이너 (히스토리 미저장)
-                let config = ModelConfiguration(isStoredInMemoryOnly: true)
-                return try! ModelContainer(for: TranslationRecord.self, configurations: config)
-            }
-        }
-    }()
+    /// SwiftData 컨테이너 — 히스토리 영구 저장 (위치·복구·이전은 HistoryStore 담당, H2)
+    let modelContainer: ModelContainer
+
+    /// 스토어를 열 수 없어 인메모리로 동작 중인지 — 히스토리 뷰에 경고를 띄운다
+    let historyIsInMemory: Bool
+
+    private init() {
+        HistoryStore.migrateLegacyStoreIfNeeded(from: HistoryStore.legacyStoreURL, to: HistoryStore.defaultStoreURL)
+        let result = HistoryStore.makeContainer(at: HistoryStore.defaultStoreURL)
+        modelContainer = result.container
+        historyIsInMemory = result.isInMemory
+    }
 
     /// 번역 히스토리 관리자 — @Observable이 lazy를 지원하지 않으므로 추적 제외
     @ObservationIgnored
@@ -97,16 +86,17 @@ final class AppOrchestrator {
             }
         }
 
-        // 드래그 번역: 커스텀 단축키 등록 + Cmd+C+C 글로벌 모니터 설치 (항상)
-        // 모니터는 콜백 내부에서 모드를 확인하여 동작 여부를 결정한다.
+        // 드래그 번역: 단축키 핸들러는 앱 생명주기 동안 한 번만 등록한다 (C3-a).
+        // KeyboardShortcuts.onKeyUp은 핸들러를 배열에 append하므로 재등록하면 누적된다.
+        // 모드 확인은 콜백 안에서 하고, updateDragTranslateMode는 enable/disable만 한다.
+        KeyboardShortcuts.onKeyUp(for: .dragTranslate) { [weak self] in
+            Task { @MainActor in
+                guard AppSettings.shared.dragTranslateMode != "doubleCopy" else { return }
+                self?.startDragTranslation()
+            }
+        }
         if AppSettings.shared.dragTranslateMode == "doubleCopy" {
             KeyboardShortcuts.disable(.dragTranslate)
-        } else {
-            KeyboardShortcuts.onKeyUp(for: .dragTranslate) { [weak self] in
-                Task { @MainActor in
-                    self?.startDragTranslation()
-                }
-            }
         }
         installDoubleCopyMonitor()  // 항상 설치, 콜백에서 모드 확인
 
@@ -123,9 +113,13 @@ final class AppOrchestrator {
             .assign(to: \.canCheckForUpdates, on: self)
     }
 
+    /// 영역 선택이 진행 중인지 — 권한 확인 await 동안에도 true (H1: 단축키 연타로 오버레이 2개 생성 방지)
+    private var isSelectingRegion = false
+
     func startTranslation() {
-        // 오버레이가 이미 표시 중이면 무시 (중복 호출 방지)
-        guard overlayWindow == nil else { return }
+        // 오버레이가 이미 표시 중이거나 준비 중이면 무시 (중복 호출 방지)
+        guard !isSelectingRegion, overlayWindow == nil else { return }
+        isSelectingRegion = true
 
         cancelCurrentWork()
 
@@ -133,6 +127,7 @@ final class AppOrchestrator {
         Task {
             let hasPermission = await ScreenCapturer.checkPermission()
             guard hasPermission else {
+                isSelectingRegion = false
                 PermissionGuard.requestScreenRecordingPermission()
                 return
             }
@@ -143,8 +138,10 @@ final class AppOrchestrator {
 
             overlayWindow = SelectionOverlayWindow()
             overlayWindow?.show { [weak self] rect in
-                self?.overlayWindow = nil  // 사용 후 해제
-                guard let self, let rect else { return }
+                guard let self else { return }
+                self.overlayWindow = nil  // 사용 후 해제
+                self.isSelectingRegion = false
+                guard let rect else { return }
                 self.processingTask = Task { @MainActor in
                     await self.processCapture(rect: rect)
                 }
@@ -230,12 +227,24 @@ final class AppOrchestrator {
                 return
 
             case .idle:
-                return  // 취소됨
+                // 취소됨 (다른 번역 요청이 이 실행을 밀어낸 경우 포함) — 빈 팝업을 남기지 않는다
+                popup.close()
+                if popupWindow === popup { popupWindow = nil }
+                return
 
             case .recognizing, .translating:
                 continue  // 다음 상태 대기
             }
         }
+    }
+
+    /// 팝업을 만들고 닫힘 훅을 연결한다. 팝업이 어떤 경로로든 닫히면 외부 클릭 모니터를 제거한다.
+    private func makePopup() -> TranslationPopupWindow {
+        let popup = TranslationPopupWindow()
+        popup.onDidClose = { [weak self] in
+            self?.removeClickOutsideMonitor()
+        }
+        return popup
     }
 
     private func processDragTranslation() async {
@@ -247,7 +256,7 @@ final class AppOrchestrator {
 
         guard let selectedText = await TextGrabber.getSelectedText(),
               !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            let popup = TranslationPopupWindow()
+            let popup = makePopup()
             self.popupWindow = popup
             let cursorRect = cursorScreenRect()
             popup.show(state: .failed(L10n.noSelectedText), near: cursorRect, on: currentScreen)
@@ -255,7 +264,7 @@ final class AppOrchestrator {
             return
         }
 
-        let popup = popupWindow ?? TranslationPopupWindow()
+        let popup = popupWindow ?? makePopup()
         self.popupWindow = popup
         let cursorRect = cursorScreenRect()
 
@@ -286,7 +295,9 @@ final class AppOrchestrator {
     /// AppKit 좌하단 원점을 SwiftUI 좌상단 원점으로 변환한다.
     private func cursorScreenRect() -> CGRect {
         let mouse = NSEvent.mouseLocation
-        let screen = currentScreen ?? NSScreen.main ?? NSScreen.screens.first!
+        guard let screen = currentScreen ?? NSScreen.main ?? NSScreen.screens.first else {
+            return CGRect(x: mouse.x, y: mouse.y, width: 1, height: 1)
+        }
         let swiftUIY = screen.frame.maxY - mouse.y
         let swiftUIX = mouse.x - screen.frame.origin.x
         return CGRect(x: swiftUIX, y: swiftUIY, width: 1, height: 1)
@@ -313,11 +324,28 @@ final class AppOrchestrator {
             if !TextGrabber.isAccessibilityTrusted {
                 TextGrabber.requestAccessibilityPermission()
                 PermissionGuard.requestAccessibilityPermission()
+                reinstallDoubleCopyMonitorWhenTrusted()
             }
         } else {
-            KeyboardShortcuts.onKeyUp(for: .dragTranslate) { [weak self] in
-                Task { @MainActor in
-                    self?.startDragTranslation()
+            // 핸들러는 setup()에서 한 번만 등록했으므로 핫키만 다시 켠다 (C3-a)
+            KeyboardShortcuts.enable(.dragTranslate)
+        }
+    }
+
+    /// M3: 권한 없이 설치된 글로벌 키 모니터는 권한을 나중에 허용해도 이벤트를 받지 못한다.
+    /// 최대 3분 동안 2초마다 확인해 권한이 생기면 모니터를 한 번 재설치한다.
+    private var trustPollingTask: Task<Void, Never>?
+
+    private func reinstallDoubleCopyMonitorWhenTrusted() {
+        trustPollingTask?.cancel()
+        trustPollingTask = Task { [weak self] in
+            for _ in 0..<90 {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled, let self else { return }
+                if TextGrabber.isAccessibilityTrusted {
+                    self.installDoubleCopyMonitor()
+                    self.trustPollingTask = nil
+                    return
                 }
             }
         }
@@ -391,7 +419,7 @@ final class AppOrchestrator {
         // 클립보드에서 텍스트 읽기
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
               !clipboardText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            let popup = TranslationPopupWindow()
+            let popup = makePopup()
             self.popupWindow = popup
             let cursorRect = cursorScreenRect()
             popup.show(state: .failed(L10n.noClipboardText), near: cursorRect, on: currentScreen)
@@ -399,7 +427,7 @@ final class AppOrchestrator {
             return
         }
 
-        let popup = popupWindow ?? TranslationPopupWindow()
+        let popup = popupWindow ?? makePopup()
         self.popupWindow = popup
         let cursorRect = cursorScreenRect()
 
@@ -430,7 +458,7 @@ final class AppOrchestrator {
         coordinator.sourceLanguage = AppSettings.shared.sourceLanguage
         coordinator.targetLanguage = AppSettings.shared.targetLanguage
 
-        let popup = popupWindow ?? TranslationPopupWindow()
+        let popup = popupWindow ?? makePopup()
         self.popupWindow = popup
 
         popup.show(state: .recognizing, near: rect, on: currentScreen)
@@ -515,8 +543,8 @@ final class AppOrchestrator {
 
         // onComplete: finishOnboarding()이 hasCompletedOnboarding 설정을 담당하고,
         // X 버튼은 OnboardingWindowDelegate가 처리하므로 여기서는 윈도우만 닫는다.
-        let onboardingView = OnboardingView {
-            window.close()
+        let onboardingView = OnboardingView { [weak window] in
+            window?.close()  // 강한 캡처 시 window → contentView → rootView → 클로저 → window 순환 (M12)
         }
         window.contentView = NSHostingView(rootView: onboardingView)
 
@@ -598,7 +626,7 @@ final class AppOrchestrator {
             // 기존 윈도우가 열려있으면 rootView를 교체하여 initialExpandedID 반영
             if let recordID {
                 (existing.contentView as? NSHostingView<HistoryView>)?.rootView =
-                    HistoryView(historyManager: historyManager, initialExpandedID: recordID)
+                    HistoryView(historyManager: historyManager, initialExpandedID: recordID, isInMemory: historyIsInMemory)
             }
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -615,7 +643,7 @@ final class AppOrchestrator {
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(
-            rootView: HistoryView(historyManager: historyManager, initialExpandedID: recordID)
+            rootView: HistoryView(historyManager: historyManager, initialExpandedID: recordID, isInMemory: historyIsInMemory)
         )
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

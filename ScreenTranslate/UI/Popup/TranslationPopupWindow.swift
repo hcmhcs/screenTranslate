@@ -384,8 +384,12 @@ final class TranslationPopupWindow: NSPanel {
 
     // MARK: - 앱 activate 시 보조 윈도우 보호
 
+    /// 닫힘 알림 — AppOrchestrator가 외부 클릭 모니터를 정리하는 데 사용
+    var onDidClose: (() -> Void)?
+
     override func close() {
         super.close()
+        onDidClose?()
         // super.close() 후 macOS가 설정/About 등을 key window로 선택하여
         // 앞으로 올라올 수 있다. 다음 run loop에서 orderBack하여 되돌린다.
         // (동기 orderBack은 super.close() 후 macOS 자동 선택에 의해 무효화됨)
