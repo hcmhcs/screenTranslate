@@ -24,7 +24,9 @@ final class ScreenCapturer {
             throw CaptureError.noDisplayFound
         }
 
-        let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
+        // H7: 자기 앱(팝업, 오버레이 잔상)이 스크린샷에 찍혀 OCR 대상에 섞이지 않도록 제외
+        let ownApps = content.applications.filter { $0.bundleIdentifier == Bundle.main.bundleIdentifier }
+        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
 
         let config = SCStreamConfiguration()
         // 픽셀 단위로 설정 (Retina 대응)
