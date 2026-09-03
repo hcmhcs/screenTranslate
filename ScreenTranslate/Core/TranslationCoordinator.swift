@@ -16,7 +16,7 @@ final class TranslationCoordinator {
         }
     }
 
-    /// 외부 관찰자가 상태 변경을 수신하는 스트림.
+    /// 외부 관찰자가 상태 변경을 수신하는 스트림의 continuation.
     /// willSet에서 이전 continuation을 finish()하여 레이스 컨디션을 방지한다.
     private var stateContinuation: AsyncStream<State>.Continuation? {
         willSet {
@@ -24,7 +24,10 @@ final class TranslationCoordinator {
         }
     }
 
-    var stateStream: AsyncStream<State> {
+    /// 상태 변경 스트림을 새로 만든다. 구독자는 한 번에 하나뿐이다:
+    /// 새 스트림을 만들면 이전 스트림은 종료된다. (computed property였을 때는
+    /// 접근할 때마다 이전 구독이 조용히 끊겨 호출부에 우회 주석이 필요했다.)
+    func makeStateStream() -> AsyncStream<State> {
         AsyncStream(bufferingPolicy: .bufferingNewest(10)) { continuation in
             self.stateContinuation = continuation
             continuation.yield(state)

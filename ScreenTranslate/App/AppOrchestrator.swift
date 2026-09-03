@@ -207,7 +207,7 @@ final class AppOrchestrator {
         telemetryParameters: [String: String] = [:],
         sourceTextFallback: String?
     ) async throws {
-        for await state in coordinator.stateStream {
+        for await state in coordinator.makeStateStream() {
             try Task.checkCancellation()
             popup.updateState(state, near: rect, on: currentScreen)
 

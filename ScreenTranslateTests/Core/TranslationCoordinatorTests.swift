@@ -349,7 +349,7 @@ final class TranslationCoordinatorTests: XCTestCase {
         let expectation = XCTestExpectation(description: "stateStream completes")
 
         let task = Task {
-            for await state in sut.stateStream {
+            for await state in sut.makeStateStream() {
                 receivedStates.append(state)
                 if case .completed = state { break }
             }
