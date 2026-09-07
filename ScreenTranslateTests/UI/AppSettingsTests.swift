@@ -39,7 +39,7 @@ extension SerializedDefaultsSuite {
         }
 
         UserDefaults.standard.removeObject(forKey: key)
-        #expect(AppSettings.shared.translationProviderName == "Apple Translation")
+        #expect(AppSettings.shared.translationProviderName == .apple)
     }
 
     @Test("default ocrTextPreprocessing is true")

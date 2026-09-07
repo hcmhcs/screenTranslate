@@ -38,16 +38,10 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .task {
             await packManager.refreshAllStatuses()
-            if settings.translationProviderName == "DeepL" && !settings.hasDeepLKey {
-                settings.translationProviderName = "Apple Translation"
-                AppOrchestrator.shared.updateTranslationProvider()
-            }
-            if settings.translationProviderName == "Google Cloud" && !settings.hasGoogleKey {
-                settings.translationProviderName = "Apple Translation"
-                AppOrchestrator.shared.updateTranslationProvider()
-            }
-            if settings.translationProviderName == "Microsoft Azure" && !settings.hasAzureKey {
-                settings.translationProviderName = "Apple Translation"
+            // 키가 없는 BYOK 엔진이 선택되어 있으면 Apple로 되돌린다
+            let selected = settings.translationProviderName
+            if !settings.canUse(selected) {
+                settings.translationProviderName = .apple
                 AppOrchestrator.shared.updateTranslationProvider()
             }
         }
@@ -340,28 +334,28 @@ struct SettingsView: View {
                     } icon: {
                         engineStatusIcon(ready: true)
                     }
-                    .tag("Apple Translation")
+                    .tag(TranslationEngine.apple)
 
                     Label {
                         Text("DeepL")
                     } icon: {
                         engineStatusIcon(ready: settings.hasDeepLKey)
                     }
-                    .tag("DeepL")
+                    .tag(TranslationEngine.deepl)
 
                     Label {
                         Text("Google Cloud")
                     } icon: {
                         engineStatusIcon(ready: settings.hasGoogleKey)
                     }
-                    .tag("Google Cloud")
+                    .tag(TranslationEngine.google)
 
                     Label {
                         Text("Microsoft Azure")
                     } icon: {
                         engineStatusIcon(ready: settings.hasAzureKey)
                     }
-                    .tag("Microsoft Azure")
+                    .tag(TranslationEngine.azure)
                 }
                 .pickerStyle(.menu)
                 .onChange(of: settings.translationProviderName) { _, _ in
@@ -373,7 +367,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
 
                 // DeepL API 키
-                if settings.translationProviderName == "DeepL" {
+                if settings.translationProviderName == .deepl {
                     APIKeySection(
                         hasKey: settings.hasDeepLKey,
                         savedLabel: nil,
@@ -387,14 +381,14 @@ struct SettingsView: View {
                         },
                         onDelete: {
                             settings.deleteDeepLKey()
-                            settings.translationProviderName = "Apple Translation"
+                            settings.translationProviderName = .apple
                             AppOrchestrator.shared.updateTranslationProvider()
                         }
                     )
                 }
 
                 // Google Cloud API 키
-                if settings.translationProviderName == "Google Cloud" {
+                if settings.translationProviderName == .google {
                     APIKeySection(
                         hasKey: settings.hasGoogleKey,
                         savedLabel: nil,
@@ -408,14 +402,14 @@ struct SettingsView: View {
                         },
                         onDelete: {
                             settings.deleteGoogleKey()
-                            settings.translationProviderName = "Apple Translation"
+                            settings.translationProviderName = .apple
                             AppOrchestrator.shared.updateTranslationProvider()
                         }
                     )
                 }
 
                 // Microsoft Azure API 키 + 리전
-                if settings.translationProviderName == "Microsoft Azure" {
+                if settings.translationProviderName == .azure {
                     APIKeySection(
                         hasKey: settings.hasAzureKey,
                         savedLabel: settings.azureRegion.map { "\(L10n.apiKeySaved) (\($0))" },
@@ -434,7 +428,7 @@ struct SettingsView: View {
                             settings.deleteAzureKey()
                             settings.azureRegion = nil
                             azureRegionInput = ""
-                            settings.translationProviderName = "Apple Translation"
+                            settings.translationProviderName = .apple
                             AppOrchestrator.shared.updateTranslationProvider()
                         },
                         regionInput: $azureRegionInput
@@ -655,12 +649,12 @@ struct SettingsView: View {
     }
 
 
-    private func engineDescription(for name: String) -> String {
-        switch name {
-        case "DeepL": return L10n.engineDescDeepL
-        case "Google Cloud": return L10n.engineDescGoogle
-        case "Microsoft Azure": return L10n.engineDescAzure
-        default: return L10n.engineDescApple
+    private func engineDescription(for engine: TranslationEngine) -> String {
+        switch engine {
+        case .apple: return L10n.engineDescApple
+        case .deepl: return L10n.engineDescDeepL
+        case .google: return L10n.engineDescGoogle
+        case .azure: return L10n.engineDescAzure
         }
     }
 

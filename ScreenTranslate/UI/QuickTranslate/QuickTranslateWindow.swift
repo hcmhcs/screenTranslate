@@ -21,7 +21,7 @@ final class QuickTranslateWindow: NSPanel {
         let coordinator = TranslationCoordinator(
             ocrProvider: VisionOCRProvider(),
             translationProvider: TranslationProviderFactory.make(
-                name: AppSettings.shared.translationProviderName
+                AppSettings.shared.translationProviderName
             ),
             targetLanguage: AppSettings.shared.targetLanguage
         )
@@ -99,7 +99,7 @@ final class QuickTranslateWindow: NSPanel {
     /// 번역 엔진 변경 시 provider 갱신
     func updateTranslationProvider() {
         let provider = TranslationProviderFactory.make(
-            name: AppSettings.shared.translationProviderName
+            AppSettings.shared.translationProviderName
         )
         coordinator.updateProvider(provider)
     }

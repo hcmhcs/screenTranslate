@@ -6,25 +6,13 @@ import Testing
 /// Keychain에 API 키가 없는 상태에서의 폴백 동작을 테스트한다.
 struct TranslationProviderFactoryTests {
 
-    // MARK: - Default / Unknown
+    // MARK: - Default
 
-    @Test("default name returns Apple provider")
-    func defaultName() {
-        let provider = TranslationProviderFactory.make(name: "Apple Translation")
+    @Test("Apple engine returns Apple provider")
+    func appleEngine() {
+        let provider = TranslationProviderFactory.make(.apple)
         #expect(provider.name == "Apple Translation")
         #expect(provider.requiresAPIKey == false)
-    }
-
-    @Test("unknown name falls back to Apple provider")
-    func unknownName() {
-        let provider = TranslationProviderFactory.make(name: "unknown")
-        #expect(provider.name == "Apple Translation")
-    }
-
-    @Test("empty name falls back to Apple provider")
-    func emptyName() {
-        let provider = TranslationProviderFactory.make(name: "")
-        #expect(provider.name == "Apple Translation")
     }
 
     // MARK: - BYOK without API key → Apple fallback
@@ -38,7 +26,7 @@ struct TranslationProviderFactoryTests {
         }
         try? KeychainHelper.delete(key: TranslationProviderFactory.deepLKeychainKey)
 
-        let provider = TranslationProviderFactory.make(name: "DeepL")
+        let provider = TranslationProviderFactory.make(.deepl)
         #expect(provider.name == "Apple Translation")
     }
 
@@ -50,7 +38,7 @@ struct TranslationProviderFactoryTests {
         }
         try? KeychainHelper.delete(key: TranslationProviderFactory.googleKeychainKey)
 
-        let provider = TranslationProviderFactory.make(name: "Google Cloud")
+        let provider = TranslationProviderFactory.make(.google)
         #expect(provider.name == "Apple Translation")
     }
 
@@ -62,8 +50,25 @@ struct TranslationProviderFactoryTests {
         }
         try? KeychainHelper.delete(key: TranslationProviderFactory.azureKeychainKey)
 
-        let provider = TranslationProviderFactory.make(name: "Microsoft Azure")
+        let provider = TranslationProviderFactory.make(.azure)
         #expect(provider.name == "Apple Translation")
+    }
+
+    // MARK: - Engine enum ↔ 저장값 호환
+
+    @Test("engine rawValues match provider display names")
+    func rawValuesMatchDisplayNames() {
+        // rawValue는 UserDefaults에 저장되는 값이므로 절대 바뀌면 안 된다
+        #expect(TranslationEngine.apple.rawValue == "Apple Translation")
+        #expect(TranslationEngine.deepl.rawValue == "DeepL")
+        #expect(TranslationEngine.google.rawValue == "Google Cloud")
+        #expect(TranslationEngine.azure.rawValue == "Microsoft Azure")
+    }
+
+    @Test("unknown stored value parses to nil (AppSettings getter falls back to Apple)")
+    func unknownValueParsesToNil() {
+        #expect(TranslationEngine(rawValue: "unknown") == nil)
+        #expect(TranslationEngine(rawValue: "") == nil)
     }
 
     // MARK: - Keychain key constants

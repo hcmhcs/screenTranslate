@@ -76,13 +76,13 @@ final class AppOrchestrator {
     /// 생성되어 @Observable 상태 추적이 불가능하고, 진행 중인 Task가 소실된다.
     let coordinator = TranslationCoordinator(
         ocrProvider: VisionOCRProvider(),
-        translationProvider: TranslationProviderFactory.make(name: AppSettings.shared.translationProviderName),
+        translationProvider: TranslationProviderFactory.make(AppSettings.shared.translationProviderName),
         targetLanguage: AppSettings.shared.targetLanguage
     )
 
     /// 설정에서 번역 엔진이 변경되면 Provider를 교체한다.
     func updateTranslationProvider() {
-        let provider = TranslationProviderFactory.make(name: AppSettings.shared.translationProviderName)
+        let provider = TranslationProviderFactory.make(AppSettings.shared.translationProviderName)
         coordinator.updateProvider(provider)
         quickTranslateWindow?.updateTranslationProvider()
     }
