@@ -519,13 +519,57 @@ final class AppOrchestrator {
         removeClickOutsideMonitor()
     }
 
-    // MARK: - 온보딩 윈도우
+    // MARK: - 보조 윈도우 (온보딩·설정·About·히스토리)
 
-    private var onboardingWindow: NSWindow?
+    /// 보조 윈도우 종류 — 표시·보관 상태를 하나의 딕셔너리로 관리한다
+    private enum AuxiliaryWindow {
+        case onboarding
+        case settings
+        case about
+        case history
+    }
+
+    private var auxiliaryWindows: [AuxiliaryWindow: NSWindow] = [:]
+
+    /// 이미 열려 있는 창이면 포커스를 주고 true를 반환한다.
+    /// onFocus로 열린 창에 대한 추가 작업(히스토리 rootView 교체 등)을 수행한다.
+    @discardableResult
+    private func focusExistingWindow(
+        _ id: AuxiliaryWindow,
+        onFocus: (NSWindow) -> Void = { _ in }
+    ) -> Bool {
+        guard let window = auxiliaryWindows[id], window.isVisible else { return false }
+        onFocus(window)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        return true
+    }
+
+    /// 완성된 창을 표시·활성화하고 보관한다.
+    private func presentAndStore(_ window: NSWindow, as id: AuxiliaryWindow) {
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        auxiliaryWindows[id] = window
+    }
+
+    /// 타이틀 있는 보조 윈도우 생성 보일러플레이트.
+    private func makeAuxiliaryWindow(
+        contentRect: NSRect,
+        styleMask: NSWindow.StyleMask = [.titled, .closable]
+    ) -> NSWindow {
+        let window = NSWindow(
+            contentRect: contentRect,
+            styleMask: styleMask,
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        return window
+    }
 
     func showOnboardingIfNeeded() {
-        // 중복 윈도우 방지
-        if let existing = onboardingWindow, existing.isVisible { return }
+        // 중복 윈도우 방지 — 다른 보조 창과 달리 조용히 무시한다 (앱 시작 시 1회 호출)
+        if let existing = auxiliaryWindows[.onboarding], existing.isVisible { return }
 
         // 기존 사용자 판별: UserDefaults에 앱 설정 키가 하나라도 있으면 기존 사용자로 간주.
         // (이 키들은 computed property + ?? 기본값이라 사용자가 명시적으로 변경해야만 저장됨)
@@ -543,14 +587,8 @@ final class AppOrchestrator {
 
         guard !AppSettings.shared.hasCompletedOnboarding else { return }
 
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 420),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
+        let window = makeAuxiliaryWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 420))
         window.title = "ScreenTranslate"
-        window.isReleasedWhenClosed = false
         window.center()
 
         // onComplete: finishOnboarding()이 hasCompletedOnboarding 설정을 담당하고,
@@ -563,30 +601,16 @@ final class AppOrchestrator {
         // X 버튼으로 닫으면 온보딩 미완료 → 다음 실행 시 재표시
         window.delegate = OnboardingWindowDelegate.shared
 
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        self.onboardingWindow = window
+        presentAndStore(window, as: .onboarding)
     }
 
     // MARK: - 설정 윈도우
 
-    private var settingsWindow: NSWindow?
-
     func showSettings() {
-        if let existing = settingsWindow, existing.isVisible {
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
+        guard !focusExistingWindow(.settings) else { return }
 
-        let window = NSWindow(
-            contentRect: .zero,
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
+        let window = makeAuxiliaryWindow(contentRect: .zero)
         window.title = L10n.settingsWindowTitle
-        window.isReleasedWhenClosed = false
         let hostingView = NSHostingView(rootView: SettingsView())
         window.contentView = hostingView
 
@@ -598,49 +622,33 @@ final class AppOrchestrator {
             window.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        self.settingsWindow = window
+        presentAndStore(window, as: .settings)
     }
 
     // MARK: - About 윈도우
 
-    private var aboutWindow: NSWindow?
-
     func showAbout() {
-        if let existing = aboutWindow, existing.isVisible {
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
+        guard !focusExistingWindow(.about) else { return }
 
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 200),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
+        let window = makeAuxiliaryWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200))
         window.title = L10n.aboutApp
-        window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: AboutView())
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        self.aboutWindow = window
+        presentAndStore(window, as: .about)
     }
 
     // MARK: - 히스토리 윈도우
 
-    private var historyWindow: NSWindow?
     /// 같은 기록을 연달아 요청해도 펼침이 다시 일어나도록 요청마다 증가시킨다
     private var historyExpansionRequest = 0
 
     func showHistory(expandingRecord recordID: UUID? = nil) {
         if recordID != nil { historyExpansionRequest += 1 }
-        if let existing = historyWindow, existing.isVisible {
-            // 기존 윈도우가 열려있으면 rootView를 교체하여 initialExpandedID 반영
+
+        // 기존 윈도우가 열려있으면 rootView를 교체하여 initialExpandedID 반영
+        let focused = focusExistingWindow(.history) { window in
             if let recordID {
-                (existing.contentView as? NSHostingView<HistoryView>)?.rootView =
+                (window.contentView as? NSHostingView<HistoryView>)?.rootView =
                     HistoryView(
                         historyManager: historyManager,
                         initialExpandedID: recordID,
@@ -648,19 +656,14 @@ final class AppOrchestrator {
                         expansionRequest: historyExpansionRequest
                     )
             }
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
         }
+        guard !focused else { return }
 
-        let window = NSWindow(
+        let window = makeAuxiliaryWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered,
-            defer: false
+            styleMask: [.titled, .closable, .resizable, .miniaturizable]
         )
         window.title = L10n.translationHistory
-        window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(
             rootView: HistoryView(
@@ -670,9 +673,7 @@ final class AppOrchestrator {
                 expansionRequest: historyExpansionRequest
             )
         )
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        self.historyWindow = window
+        presentAndStore(window, as: .history)
     }
 }
 
