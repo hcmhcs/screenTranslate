@@ -67,14 +67,15 @@ final class AppSettings {
 
     // MARK: - Translation Provider
 
-    var translationProviderName: String {
+    var translationProviderName: TranslationEngine {
         get {
             access(keyPath: \.translationProviderName)
-            return UserDefaults.standard.string(forKey: "com.screentranslate.translationProviderName") ?? "Apple Translation"
+            let stored = UserDefaults.standard.string(forKey: "com.screentranslate.translationProviderName")
+            return TranslationEngine(rawValue: stored ?? "") ?? .apple
         }
         set {
             withMutation(keyPath: \.translationProviderName) {
-                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.translationProviderName")
+                UserDefaults.standard.set(newValue.rawValue, forKey: "com.screentranslate.translationProviderName")
             }
         }
     }
@@ -130,6 +131,19 @@ final class AppSettings {
     func deleteAzureKey() {
         try? KeychainHelper.delete(key: TranslationProviderFactory.azureKeychainKey)
         withMutation(keyPath: \._hasAzureKey) { _hasAzureKey = false }
+    }
+
+    // MARK: - Engine Readiness
+
+    /// 엔진을 바로 쓸 수 있는지 — Apple은 키 불필요, BYOK 엔진은 저장된 키 필요.
+    /// 설정 화면에서 키가 없는 엔진이 선택되어 있으면 Apple로 되돌리는 판정에 쓴다.
+    func canUse(_ engine: TranslationEngine) -> Bool {
+        switch engine {
+        case .apple: return true
+        case .deepl: return hasDeepLKey
+        case .google: return hasGoogleKey
+        case .azure: return hasAzureKey
+        }
     }
 
     // MARK: - Azure Region

@@ -8,11 +8,13 @@ final class AzureTranslationProvider: TranslationProvider {
 
     private let apiKey: String
     private let region: String?
+    private let client: HTTPClient
     private let baseURL = "https://api.cognitive.microsofttranslator.com/translate"
 
-    init(apiKey: String, region: String? = nil) {
+    init(apiKey: String, region: String? = nil, client: HTTPClient = URLSession.shared) {
         self.apiKey = apiKey
         self.region = region
+        self.client = client
     }
 
     func translate(text: String, from source: Locale.Language?, to target: Locale.Language) async throws -> String {
@@ -36,11 +38,7 @@ final class AzureTranslationProvider: TranslationProvider {
         request.httpBody = try JSONEncoder().encode([RequestBody(text: text)])
         request.timeoutInterval = 30
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw TranslationError.translationFailed("Invalid response")
-        }
+        let (data, http) = try await TranslationHTTP.perform(request, using: client)
 
         guard http.statusCode == 200 else {
             let errorBody = try? JSONDecoder().decode(ErrorResponse.self, from: data)
@@ -55,14 +53,14 @@ final class AzureTranslationProvider: TranslationProvider {
             case 429:
                 throw TranslationError.translationFailed(L10n.quotaExceeded)
             default:
-                let message = errorBody?.error.message ?? "Azure HTTP \(http.statusCode)"
+                let message = errorBody?.error.message ?? L10n.engineHttpError("Azure", status: http.statusCode)
                 throw TranslationError.translationFailed(message)
             }
         }
 
-        let results = try JSONDecoder().decode([TranslationResult].self, from: data)
-        guard let translatedText = results.first?.translations.first?.text else {
-            throw TranslationError.translationFailed("Invalid response format")
+        guard let results = try? JSONDecoder().decode([TranslationResult].self, from: data),
+              let translatedText = results.first?.translations.first?.text else {
+            throw TranslationError.translationFailed(L10n.invalidServerResponse)
         }
 
         return translatedText

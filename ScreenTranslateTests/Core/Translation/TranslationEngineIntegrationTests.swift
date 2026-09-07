@@ -8,6 +8,7 @@ import XCTest
 ///   export DEEPL_API_KEY="your-key"
 ///   export GOOGLE_CLOUD_API_KEY="your-key"
 ///   export AZURE_API_KEY="your-key"
+@MainActor
 final class TranslationEngineIntegrationTests: XCTestCase {
 
     // MARK: - DeepL

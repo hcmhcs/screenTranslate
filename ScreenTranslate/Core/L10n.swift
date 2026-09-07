@@ -19,6 +19,7 @@ nonisolated enum L10n {
     static var showAll: String { s("Show All...", ko: "모두 보기...") }
     static var aboutApp: String { s("About ScreenTranslate", ko: "ScreenTranslate 정보") }
     static var settingsMenu: String { s("Settings...", ko: "설정...") }
+    static var settingsWindowTitle: String { s("Settings", ko: "설정") }
     static var checkForUpdates: String { s("Check for Updates...", ko: "업데이트 확인...") }
     static var quit: String { s("Quit", ko: "종료") }
 
@@ -31,6 +32,10 @@ nonisolated enum L10n {
     static var copy: String { s("Copy", ko: "복사") }
     static var close: String { s("Close", ko: "닫기") }
     static var lowConfidence: String { s("Low recognition confidence", ko: "인식 정확도가 낮습니다") }
+    static var translationSuperseded: String { s("Cancelled because another translation started.", ko: "다른 번역이 시작되어 취소되었습니다.") }
+    static var translationTimedOut: String { s("Translation timed out. Please try again.", ko: "번역 응답이 없어 시간이 초과되었습니다. 다시 시도해주세요.") }
+    static var apiKeySaveFailed: String { s("Couldn't save the API key to Keychain. Unlock your keychain and try again.", ko: "API 키를 키체인에 저장하지 못했습니다. 키체인 잠금을 해제한 뒤 다시 시도해주세요.") }
+    static var historyNotPersisted: String { s("History can't be saved right now. Translations will be lost when the app quits.", ko: "지금은 히스토리를 저장할 수 없습니다. 앱을 종료하면 번역 기록이 사라집니다.") }
     static var originalText: String { s("Original", ko: "원문") }
 
     // MARK: - Quick Translate
@@ -85,6 +90,10 @@ nonisolated enum L10n {
     static var clear: String { s("Clear", ko: "삭제") }
     static var apiKeyInvalid: String { s("API key is invalid. Please check your key.", ko: "API 키가 유효하지 않습니다. 키를 확인해주세요.") }
     static var quotaExceeded: String { s("API quota exceeded. Please check your plan.", ko: "API 사용량을 초과했습니다. 요금제를 확인해주세요.") }
+    static var networkUnavailable: String { s("No internet connection. Check your network and try again.", ko: "인터넷에 연결되어 있지 않습니다. 네트워크를 확인한 뒤 다시 시도해주세요.") }
+    static var networkTimedOut: String { s("The server took too long to respond. Please try again.", ko: "서버 응답이 너무 오래 걸립니다. 다시 시도해주세요.") }
+    static var serverUnreachable: String { s("Couldn't reach the translation server.", ko: "번역 서버에 연결할 수 없습니다.") }
+    static var invalidServerResponse: String { s("The translation server returned an unexpected response.", ko: "번역 서버가 예상하지 못한 응답을 보냈습니다.") }
     static var regionLabel: String { s("Region", ko: "리전") }
     static var regionPlaceholder: String { s("e.g. koreacentral", ko: "예: koreacentral") }
     static var engineGuide: String { s("Engine setup guide", ko: "엔진 설정 가이드") }
@@ -108,6 +117,15 @@ nonisolated enum L10n {
     // MARK: - About Links
 
     static var aboutWebsite: String { s("Website", ko: "웹사이트") }
+    static func aboutVersion(_ version: String) -> String { s("Version \(version)", ko: "버전 \(version)") }
+    static var aboutCopyright: String { s("Copyright \u{00A9} 2026 hanchangmin", ko: "\u{00A9} 2026 hanchangmin") }
+    static var statusInstalled: String { s("Installed", ko: "설치됨") }
+    static var statusDownloadable: String { s("Not installed. Available to download", ko: "미설치, 다운로드 가능") }
+    static var statusUnsupported: String { s("Not supported", ko: "지원되지 않음") }
+    static var engineReady: String { s("Ready to use", ko: "사용 가능") }
+    static var engineNeedsKey: String { s("API key required", ko: "API 키 필요") }
+    static var historySucceeded: String { s("Translation succeeded", ko: "번역 성공") }
+    static var historyFailed: String { s("Translation failed", ko: "번역 실패") }
     static var aboutEnginesGuide: String { s("Translation Engines Guide", ko: "번역 엔진 가이드") }
     static var aboutPrivacyPolicy: String { s("Privacy Policy", ko: "개인정보처리방침") }
 
@@ -264,11 +282,7 @@ nonisolated enum L10n {
             return minutesAgo(Int(seconds / 60))
         }
 
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateStyle = .none
-        timeFormatter.timeStyle = .short
-
-        let timeString = timeFormatter.string(from: date)
+        let timeString = shortTimeFormatter.string(from: date)
 
         if calendar.isDateInToday(date) {
             return "\(today) \(timeString)"
@@ -277,10 +291,23 @@ nonisolated enum L10n {
             return "\(yesterday) \(timeString)"
         }
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "M/d"
-        return "\(dateFormatter.string(from: date)) \(timeString)"
+        return "\(monthDayFormatter.string(from: date)) \(timeString)"
     }
+
+    /// 호출마다 DateFormatter를 만들면 히스토리 50행 스크롤 시 수백 개가 생성된다. 캐시한다.
+    private static let shortTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    /// "M/d" 고정 포맷은 일/월 순서를 쓰는 로케일에서 뒤집혀 읽힌다. 템플릿으로 로케일에 맞춘다.
+    private static let monthDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("Md")
+        return formatter
+    }()
 
     // MARK: - Drag Translation (Beta)
 
@@ -313,6 +340,17 @@ nonisolated enum L10n {
 
     static func translationFailed(_ reason: String) -> String {
         s("Translation failed: \(reason)", ko: "번역 실패: \(reason)")
+    }
+
+    /// 클라우드 엔진이 예상 밖의 HTTP 상태를 반환했을 때의 폴백 문구.
+    static func engineHttpError(_ engine: String, status: Int) -> String {
+        s("The \(engine) server returned HTTP \(status).",
+          ko: "\(engine) 서버가 HTTP \(status) 오류를 반환했습니다.")
+    }
+
+    static var invalidRequest: String {
+        s("Invalid request. Check the language pair.",
+          ko: "잘못된 요청입니다. 언어 조합을 확인해주세요.")
     }
 
     static var autoDetectFailedMessage: String {

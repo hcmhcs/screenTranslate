@@ -21,6 +21,19 @@ struct LanguageCodeMapperTests {
         #expect(LanguageCodeMapper.toDeepLCode(.init(identifier: input)) == expected)
     }
 
+    @Test("DeepL source code mapping drops regional/script variants", arguments: [
+        ("ko", "KO"),
+        ("en", "EN"),
+        ("zh-Hans", "ZH"),
+        ("zh-Hant", "ZH"),
+        ("pt-BR", "PT"),
+        ("en-US", "EN"),
+        ("en-GB", "EN"),
+    ])
+    func deeplSourceCode(input: String, expected: String) {
+        #expect(LanguageCodeMapper.toDeepLCode(.init(identifier: input), asSource: true) == expected)
+    }
+
     @Test("Google code mapping", arguments: [
         ("ko", "ko"),
         ("en", "en"),

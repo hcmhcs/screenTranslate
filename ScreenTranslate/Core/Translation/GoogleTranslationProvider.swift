@@ -1,16 +1,18 @@
 import Foundation
 
 /// Google Cloud Translation API v2 (Basic)를 사용하는 번역 Provider.
-/// API 키 인증 방식 (URL 쿼리 파라미터).
+/// API 키는 URL 쿼리가 아니라 `x-goog-api-key` 헤더로 보낸다.
 final class GoogleTranslationProvider: TranslationProvider {
     let name = "Google Cloud"
     let requiresAPIKey = true
 
     private let apiKey: String
+    private let client: HTTPClient
     private let baseURL = "https://translation.googleapis.com/language/translate/v2"
 
-    init(apiKey: String) {
+    init(apiKey: String, client: HTTPClient = URLSession.shared) {
         self.apiKey = apiKey
+        self.client = client
     }
 
     func translate(text: String, from source: Locale.Language?, to target: Locale.Language) async throws -> String {
@@ -30,26 +32,31 @@ final class GoogleTranslationProvider: TranslationProvider {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 30
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw TranslationError.translationFailed("Invalid response")
-        }
+        let (data, http) = try await TranslationHTTP.perform(request, using: client)
 
         switch http.statusCode {
         case 200: break
-        case 400: throw TranslationError.translationFailed("Invalid request")
+        case 400: throw TranslationError.translationFailed(L10n.invalidRequest)
         case 403: throw TranslationError.apiKeyMissing
-        default:  throw TranslationError.translationFailed("Google HTTP \(http.statusCode)")
+        default:  throw TranslationError.translationFailed(L10n.engineHttpError("Google", status: http.statusCode))
         }
 
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let dataObj = json?["data"] as? [String: Any]
-        let translations = dataObj?["translations"] as? [[String: Any]]
-        guard let translatedText = translations?.first?["translatedText"] as? String else {
-            throw TranslationError.translationFailed("Invalid response format")
+        guard let response = try? JSONDecoder().decode(Response.self, from: data),
+              let translatedText = response.data.translations.first?.translatedText else {
+            throw TranslationError.translationFailed(L10n.invalidServerResponse)
         }
-
         return translatedText
+    }
+}
+
+private extension GoogleTranslationProvider {
+    struct Response: Decodable {
+        struct DataBody: Decodable {
+            struct Translation: Decodable {
+                let translatedText: String
+            }
+            let translations: [Translation]
+        }
+        let data: DataBody
     }
 }

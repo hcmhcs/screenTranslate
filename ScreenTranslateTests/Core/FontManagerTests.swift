@@ -3,13 +3,14 @@ import Foundation
 import Testing
 @testable import ScreenTranslate
 
-@Suite(.serialized)
-struct FontManagerTests {
+extension SerializedDefaultsSuite {
+@Suite struct FontManagerTests {
 
     @Test("shared singleton exists")
+    @MainActor
     func sharedExists() {
         let manager = FontManager.shared
-        #expect(manager != nil)
+        #expect(manager === FontManager.shared)
     }
 
     @Test("default font returns system font")
@@ -47,7 +48,8 @@ struct FontManagerTests {
     func loadCatalogParses() {
         FontManager.shared.loadCatalog()
         #expect(!FontManager.shared.catalogFonts.isEmpty)
-        #expect(FontManager.shared.catalogFonts.first?.id == "noto-sans-kr")
+        // 카탈로그 v2부터 첫 항목이 noto-sans라 순서가 아닌 포함 여부를 확인한다
+        #expect(FontManager.shared.catalogFonts.contains { $0.id == "noto-sans-kr" })
     }
 
     @Test("font fallback for unknown font name")
@@ -72,4 +74,5 @@ struct FontManagerTests {
         #expect(dir.lastPathComponent == "Fonts")
         #expect(dir.pathComponents.contains("ScreenTranslate"))
     }
+}
 }

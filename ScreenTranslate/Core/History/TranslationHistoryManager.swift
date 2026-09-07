@@ -8,12 +8,15 @@ private let logger = Logger(subsystem: "com.app.screentranslate", category: "his
 @MainActor
 @Observable
 final class TranslationHistoryManager {
+    /// 컨텍스트만 들고 있으면 컨테이너가 먼저 해제될 때 SwiftData 내부에서 크래시한다. 함께 보관한다.
+    private let modelContainer: ModelContainer
     private let modelContext: ModelContext
 
     /// 최근 기록 (UI 바인딩용)
     var recentRecords: [TranslationRecord] = []
 
     init(modelContainer: ModelContainer) {
+        self.modelContainer = modelContainer
         self.modelContext = modelContainer.mainContext
         fetchRecent()
     }
@@ -100,6 +103,10 @@ final class TranslationHistoryManager {
     /// 최근 N개만 유지하고 나머지를 삭제한다.
     /// UI에서 접근할 수 없는 오래된 기록이 무한히 쌓이는 것을 방지.
     private func trimOldRecords(keep: Int = 50) {
+        // M10: 매 번역마다 전체 조회하지 않도록 개수부터 확인
+        let total = (try? modelContext.fetchCount(FetchDescriptor<TranslationRecord>())) ?? 0
+        guard total > keep else { return }
+
         var descriptor = FetchDescriptor<TranslationRecord>(
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )

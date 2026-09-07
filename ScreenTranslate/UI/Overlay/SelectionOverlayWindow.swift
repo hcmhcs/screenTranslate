@@ -44,7 +44,12 @@ final class SelectionOverlayWindow: NSWindow {
         let mouseLocation = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) })
                 ?? NSScreen.main
-                ?? NSScreen.screens.first else { return }
+                ?? NSScreen.screens.first else {
+            // 화면을 못 찾으면 취소로 끝낸다 — completion을 안 부르면 호출자의 선택 중 플래그가 영영 남는다
+            self.completion = nil
+            completion(nil)
+            return
+        }
         setFrame(screen.frame, display: true)
 
         let overlayView = SelectionOverlayView(

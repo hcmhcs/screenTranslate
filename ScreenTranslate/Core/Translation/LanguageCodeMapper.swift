@@ -9,8 +9,11 @@ import Foundation
 enum LanguageCodeMapper {
     /// Locale.Language → DeepL 코드
     /// "ko" → "KO", "zh-Hans" → "ZH-HANS"
-    static func toDeepLCode(_ lang: Locale.Language) -> String {
+    /// - Parameter asSource: DeepL의 source_lang은 ZH·PT·EN처럼 변형 없는 코드만 받는다 (M5).
+    ///   target_lang에만 ZH-HANS, PT-BR, EN-US 같은 변형을 쓸 수 있다.
+    static func toDeepLCode(_ lang: Locale.Language, asSource: Bool = false) -> String {
         let langCode = lang.languageCode?.identifier ?? lang.minimalIdentifier
+        if asSource { return langCode.uppercased() }
 
         // Chinese: script determines Simplified vs Traditional
         if langCode == "zh" {

@@ -3,6 +3,10 @@ import SwiftUI
 struct HistoryView: View {
     let historyManager: TranslationHistoryManager
     var initialExpandedID: UUID?
+    /// 스토어를 열 수 없어 인메모리로 동작 중이면 경고 배너를 띄운다 (H2)
+    var isInMemory = false
+    /// 펼침 요청 번호 — 같은 기록을 다시 요청해도 onChange가 발화하도록 요청마다 바뀐다
+    var expansionRequest = 0
 
     @State private var expandedRecordID: UUID?
     @State private var showingDeleteAllConfirm = false
@@ -26,6 +30,16 @@ struct HistoryView: View {
             .padding(.vertical, 12)
 
             Divider()
+
+            if isInMemory {
+                Label(L10n.historyNotPersisted, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                Divider()
+            }
 
             // 히스토리 목록
             if historyManager.recentRecords.isEmpty {
@@ -64,8 +78,8 @@ struct HistoryView: View {
                 .listStyle(.inset(alternatesRowBackgrounds: true))
             }
         }
-        .frame(minWidth: 500, idealWidth: 600, maxWidth: 800,
-               minHeight: 400, idealHeight: 500, maxHeight: 700)
+        .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity,
+               minHeight: 400, idealHeight: 500, maxHeight: .infinity)
         .confirmationDialog(L10n.deleteAll, isPresented: $showingDeleteAllConfirm) {
             Button(L10n.deleteAllHistory, role: .destructive) {
                 historyManager.deleteAll()
@@ -76,6 +90,13 @@ struct HistoryView: View {
         }
         .onAppear {
             historyManager.fetchRecent()
+            if let id = initialExpandedID {
+                expandedRecordID = id
+            }
+        }
+        .onChange(of: expansionRequest) { _, _ in
+            // H5: 창이 이미 열려 있을 때 rootView가 교체되면 onAppear는 다시 호출되지 않는다.
+            // 같은 기록을 두 번 요청해도 펼치도록 UUID가 아니라 요청 번호를 관찰한다.
             if let id = initialExpandedID {
                 expandedRecordID = id
             }
@@ -112,6 +133,7 @@ struct HistoryRowView: View {
                 Image(systemName: record.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .foregroundStyle(record.isSuccess ? .green : .red)
                     .font(.caption)
+                    .accessibilityLabel(record.isSuccess ? L10n.historySucceeded : L10n.historyFailed)
 
                 // 언어 정보
                 if let sourceLang = record.sourceLanguageCode {

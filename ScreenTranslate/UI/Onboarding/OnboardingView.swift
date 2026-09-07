@@ -197,7 +197,11 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
 
             let targetName = AppSettings.supportedLanguages.first(where: { $0.code == selectedTargetCode })?.name ?? selectedTargetCode
-            Text("English → \(targetName)")
+            let sourceCode = AppSettings.shared.sourceLanguageCode
+            let sourceName = sourceCode == "auto"
+                ? L10n.autoDetect
+                : (AppSettings.supportedLanguages.first(where: { $0.code == sourceCode })?.name ?? sourceCode)
+            Text("\(sourceName) → \(targetName)")
                 .font(.title3)
                 .fontWeight(.semibold)
         }
@@ -217,8 +221,9 @@ struct OnboardingView: View {
             }
             .pickerStyle(.menu)
             .frame(width: 200)
-            .onChange(of: selectedTargetCode) { _, newValue in
-                AppSettings.shared.targetLanguageCode = newValue
+            .onChange(of: selectedTargetCode) { _, _ in
+                // 설정 저장은 finishOnboarding()에서만 한다 (H3).
+                // 여기서 저장하면 X로 닫아도 "기존 사용자"로 판정되어 온보딩이 영영 뜨지 않는다.
                 Task { await packManager.refreshAllStatuses() }
             }
         }
@@ -257,8 +262,12 @@ struct OnboardingView: View {
                 Label(L10n.onboardingLangNotInstalled, systemImage: "arrow.down.circle")
                     .foregroundStyle(.orange)
                     .font(.callout)
+            } else if status == .unsupported {
+                Label(L10n.unsupportedLanguagePair, systemImage: "xmark.circle")
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
             } else {
-                // unsupported 또는 아직 로딩 중
+                // 아직 로딩 중
                 ProgressView()
                     .controlSize(.small)
             }

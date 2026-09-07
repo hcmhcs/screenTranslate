@@ -62,8 +62,11 @@ final class FontManager {
         var entries: [String: Entry]  // key = filename (e.g. "NotoSansKR-Regular.otf")
 
         struct Entry: Codable {
-            let catalogId: String     // e.g. "noto-sans-kr"
-            let displayName: String   // e.g. "Noto Sans KR"
+            /// e.g. "noto-sans-kr". 임포트 폰트는 파일명에서 만든 id를 넣는다.
+            /// (1.5.2 이하가 non-optional로 디코딩하므로 optional로 바꾸면 다운그레이드 시 메타데이터 전체가 깨진다)
+            var catalogId: String
+            var displayName: String   // e.g. "Noto Sans KR"
+            var source: FontSource?   // nil이면 .downloaded (1.5.2 이하 메타데이터 호환, H4)
         }
     }
 
@@ -93,6 +96,18 @@ final class FontManager {
 
     // MARK: - Font Resolution
 
+    /// 설정의 폰트 이름으로 로드 가능한 PostScript 이름을 찾는다.
+    /// 설치 목록(id) → PostScript 직접 조회 순서로 해석하며, 없으면 nil.
+    private func resolvedFontName(for setting: String) -> String? {
+        if let installed = installedFonts.first(where: { $0.id == setting }) {
+            return installed.postScriptName
+        }
+        if NSFont(name: setting, size: 12) != nil {
+            return setting
+        }
+        return nil
+    }
+
     /// Returns an NSFont for the current `popupFontName` setting.
     /// Falls back to system font if the named font is not found.
     func font(size: CGFloat) -> NSFont {
@@ -102,15 +117,7 @@ final class FontManager {
             return NSFont.systemFont(ofSize: size)
         }
 
-        // Try installed fonts by id
-        if let installed = installedFonts.first(where: { $0.id == name }) {
-            if let font = NSFont(name: installed.postScriptName, size: size) {
-                return font
-            }
-        }
-
-        // Try direct PostScript name lookup
-        if let font = NSFont(name: name, size: size) {
+        if let resolved = resolvedFontName(for: name), let font = NSFont(name: resolved, size: size) {
             return font
         }
 
@@ -126,13 +133,8 @@ final class FontManager {
             return .system(size: size)
         }
 
-        if let installed = installedFonts.first(where: { $0.id == name }) {
-            return .custom(installed.postScriptName, size: size)
-        }
-
-        // Try direct name
-        if NSFont(name: name, size: size) != nil {
-            return .custom(name, size: size)
+        if let resolved = resolvedFontName(for: name) {
+            return .custom(resolved, size: size)
         }
 
         return .system(size: size)
@@ -189,6 +191,16 @@ final class FontManager {
         try FileManager.default.copyItem(at: sourceURL, to: destURL)
 
         registerSingleFont(at: destURL, source: .imported)
+
+        // H4: source를 기록해 두지 않으면 재시작 시 scanInstalledFonts가 .downloaded로 뭉개
+        // 설정의 "가져온 폰트" 목록에서 사라진다
+        var metadata = loadMetadata()
+        metadata.entries[destURL.lastPathComponent] = FontMetadata.Entry(
+            catalogId: Self.derivedFontId(from: destURL),
+            displayName: destURL.deletingPathExtension().lastPathComponent,
+            source: .imported
+        )
+        saveMetadata(metadata)
         logger.info("Imported font from \(sourceURL.lastPathComponent)")
     }
 
@@ -268,12 +280,14 @@ final class FontManager {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         downloadProgress = 0
+        defer { downloadDelegate = nil }  // 에러로 종료할 때도 delegate가 남지 않게
 
         let tempURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let delegate = DownloadProgressDelegate(
-                onProgress: { [weak self] fraction in
+                onProgress: { fraction in
+                    // 싱글턴이므로 shared로 접근 — [weak self] 캡처는 Swift 6 모드에서 동시성 에러
                     Task { @MainActor in
-                        self?.downloadProgress = fraction
+                        FontManager.shared.downloadProgress = fraction
                     }
                 },
                 onComplete: { url, error in
@@ -292,7 +306,6 @@ final class FontManager {
         }
 
         downloadProgress = 1.0
-        downloadDelegate = nil
 
         let fileName = url.lastPathComponent
         let destURL = dir.appendingPathComponent(fileName)
@@ -306,7 +319,8 @@ final class FontManager {
         var metadata = loadMetadata()
         metadata.entries[fileName] = FontMetadata.Entry(
             catalogId: catalogFont.id,
-            displayName: catalogFont.name
+            displayName: catalogFont.name,
+            source: .downloaded
         )
         saveMetadata(metadata)
 
@@ -335,9 +349,11 @@ final class FontManager {
         installedFonts.contains(where: { $0.id == catalogFont.id })
     }
 
-    /// Returns the installed font ID matching a catalog font, if installed.
-    func installedFontId(for catalogFont: CatalogFont) -> String? {
-        installedFonts.first(where: { $0.id == catalogFont.id })?.id
+    /// 파일명에서 폰트 id를 만든다 ("NotoSans-Regular.otf" → "notosans").
+    static func derivedFontId(from url: URL) -> String {
+        url.deletingPathExtension().lastPathComponent.lowercased()
+            .replacingOccurrences(of: "-regular", with: "")
+            .replacingOccurrences(of: " ", with: "-")
     }
 
     /// Extracts the PostScript name from a font file URL.
@@ -357,7 +373,12 @@ final class FontManager {
         while let fileURL = enumerator.nextObject() as? URL {
             guard fontExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
             let entry = metadata?.entries[fileURL.lastPathComponent]
-            registerSingleFont(at: fileURL, source: source, catalogId: entry?.catalogId, catalogDisplayName: entry?.displayName)
+            registerSingleFont(
+                at: fileURL,
+                source: entry?.source ?? source,
+                catalogId: entry?.catalogId,
+                catalogDisplayName: entry?.displayName
+            )
         }
     }
 
@@ -378,8 +399,6 @@ final class FontManager {
             }
         }
 
-        registeredURLs.insert(url)
-
         // Extract PostScript name
         let psName = postScriptName(from: url) ?? url.deletingPathExtension().lastPathComponent
 
@@ -390,15 +409,16 @@ final class FontManager {
             fontId = cId
             displayName = catalogDisplayName ?? url.deletingPathExtension().lastPathComponent
         } else {
-            let rawName = url.deletingPathExtension().lastPathComponent
-            displayName = rawName
-            fontId = rawName.lowercased()
-                .replacingOccurrences(of: "-regular", with: "")
-                .replacingOccurrences(of: " ", with: "-")
+            displayName = url.deletingPathExtension().lastPathComponent
+            fontId = Self.derivedFontId(from: url)
         }
 
-        // Avoid duplicates
-        guard !installedFonts.contains(where: { $0.id == fontId }) else { return }
+        // Avoid duplicates — id가 겹치는 파일은 CoreText 등록도 되돌려 목록에 없는 폰트가 남지 않게 한다
+        guard !installedFonts.contains(where: { $0.id == fontId }) else {
+            CTFontManagerUnregisterFontsForURL(url as CFURL, .process, nil)
+            return
+        }
+        registeredURLs.insert(url)
 
         let installed = InstalledFont(
             id: fontId,

@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Popup could stay stuck on "Translating..." forever when a new capture started while the previous translation was still running
+- Translation requests now time out after 30 seconds instead of spinning indefinitely
+- Drag translate could run multiple times per shortcut press after toggling the Cmd+C+C option
+- Cmd+C fallback no longer wipes images, files, or rich text from the clipboard
+- Pressing the capture shortcut twice quickly no longer leaves a stuck full-screen overlay
+- Translation history is now stored in the app's own folder; a corrupted history recovers instead of silently disappearing
+- Closing onboarding with the window button after choosing a language no longer skips onboarding permanently
+- Imported fonts stay in the font list after restart
+- Clicking a recent translation while the history window is open now expands that entry
+- Screen capture excludes the app's own popup so it can't be picked up by OCR
+- DeepL: specifying Chinese or Portuguese as the source language no longer fails with HTTP 400
+- Popup stays below the menu bar and above the Dock when placed near screen edges
+- Clicking without dragging on the selection overlay now cancels it
+- Keychain save failures now show an alert instead of failing silently
+- Cancelled cloud-engine translations no longer leave a failed entry in history
+- Cloud engines (DeepL, Google, Azure) now explain offline, timeout, and unreachable-server errors instead of showing raw error codes
+- Quick Translate keyboard actions (Enter, ⌘⇧C, ⌘/) no longer depend on window focus timing
+- Quick Translate: pressing Enter while an IME composition is in progress (e.g. Korean) now commits the text instead of translating with the last word missing
+- Drag translate via its shortcut now waits for modifier keys to be released before simulating ⌘C, fixing empty results in apps that don't support text-selection accessibility (PDF viewers, some browsers)
+- Unexpected cloud-engine HTTP errors are now shown in the app language instead of raw English
+- Quick Translate keeps the selected languages when the panel is reopened
+- Language pack status in Settings and onboarding loads in parallel and no longer flickers between states
+- Onboarding shows a clear message for unsupported languages instead of an endless spinner
+- History window can now use the full window size when resized
+- "Copied" badge no longer disappears early when the copy button is pressed repeatedly
+- About window version and copyright text are localized
+- Status icons in Settings and History now have accessibility labels
+- When another translation starts while one is still running, the earlier popup now explains why it stopped instead of vanishing
+
+### Changed
+
+- Unit tests run on every push and pull request via GitHub Actions
+- Third-party GitHub Actions are pinned to commit SHAs
+- Strict concurrency checking enabled for the app target
+- Date in history timestamps follows the system locale's day/month order
+
 ## [1.5.2] - 2026-03-31
 
 ### Highlights

@@ -43,6 +43,12 @@ struct SelectionOverlayView: View {
             }
         }
         .compositingGroup()
+        .simultaneousGesture(
+            // M16: 드래그 없이 클릭만 하면 취소 (2pt 미만 이동은 DragGesture가 인식하지 않아 onEnded가 오지 않는다)
+            TapGesture().onEnded {
+                if !isDragging { onCancel() }
+            }
+        )
         .gesture(
             DragGesture(minimumDistance: 2, coordinateSpace: .global)
                 .onChanged { value in
