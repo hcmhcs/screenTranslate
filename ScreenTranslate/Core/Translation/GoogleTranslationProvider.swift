@@ -36,9 +36,9 @@ final class GoogleTranslationProvider: TranslationProvider {
 
         switch http.statusCode {
         case 200: break
-        case 400: throw TranslationError.translationFailed("Invalid request")
+        case 400: throw TranslationError.translationFailed(L10n.invalidRequest)
         case 403: throw TranslationError.apiKeyMissing
-        default:  throw TranslationError.translationFailed("Google HTTP \(http.statusCode)")
+        default:  throw TranslationError.translationFailed(L10n.engineHttpError("Google", status: http.statusCode))
         }
 
         guard let response = try? JSONDecoder().decode(Response.self, from: data),

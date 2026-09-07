@@ -53,7 +53,7 @@ final class AzureTranslationProvider: TranslationProvider {
             case 429:
                 throw TranslationError.translationFailed(L10n.quotaExceeded)
             default:
-                let message = errorBody?.error.message ?? "Azure HTTP \(http.statusCode)"
+                let message = errorBody?.error.message ?? L10n.engineHttpError("Azure", status: http.statusCode)
                 throw TranslationError.translationFailed(message)
             }
         }

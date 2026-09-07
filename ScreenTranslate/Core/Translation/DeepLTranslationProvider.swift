@@ -45,7 +45,7 @@ final class DeepLTranslationProvider: TranslationProvider {
         case 403: throw TranslationError.apiKeyMissing
         case 456: throw TranslationError.translationFailed(L10n.quotaExceeded)
         case 429: throw TranslationError.translationFailed(L10n.quotaExceeded)
-        default:  throw TranslationError.translationFailed("DeepL HTTP \(http.statusCode)")
+        default:  throw TranslationError.translationFailed(L10n.engineHttpError("DeepL", status: http.statusCode))
         }
 
         guard let response = try? JSONDecoder().decode(Response.self, from: data),

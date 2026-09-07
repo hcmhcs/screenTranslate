@@ -342,6 +342,17 @@ nonisolated enum L10n {
         s("Translation failed: \(reason)", ko: "번역 실패: \(reason)")
     }
 
+    /// 클라우드 엔진이 예상 밖의 HTTP 상태를 반환했을 때의 폴백 문구.
+    static func engineHttpError(_ engine: String, status: Int) -> String {
+        s("The \(engine) server returned HTTP \(status).",
+          ko: "\(engine) 서버가 HTTP \(status) 오류를 반환했습니다.")
+    }
+
+    static var invalidRequest: String {
+        s("Invalid request. Check the language pair.",
+          ko: "잘못된 요청입니다. 언어 조합을 확인해주세요.")
+    }
+
     static var autoDetectFailedMessage: String {
         s("Could not detect the source language.\nFor short text, try setting the source language in Settings.",
           ko: "원문 언어를 감지하지 못했습니다.\n짧은 텍스트의 경우, 설정에서 원문 언어를 지정해 보세요.")

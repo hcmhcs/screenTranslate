@@ -133,6 +133,7 @@ final class L10nTests: XCTestCase {
             ("apiKeyRequired", L10n.apiKeyRequired),
             ("apiKeySaved", L10n.apiKeySaved),
             ("clear", L10n.clear),
+            ("invalidRequest", L10n.invalidRequest),
             ("apiKeyInvalid", L10n.apiKeyInvalid),
             ("quotaExceeded", L10n.quotaExceeded),
             ("regionLabel", L10n.regionLabel),
@@ -212,6 +213,7 @@ final class L10nTests: XCTestCase {
             ("captureError", L10n.captureError("test")),
             ("ocrFailed", L10n.ocrFailed("test")),
             ("translationFailed", L10n.translationFailed("test")),
+            ("engineHttpError", L10n.engineHttpError("DeepL", status: 500)),
         ]
     }
 }
