@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cloud engines (DeepL, Google, Azure) now explain offline, timeout, and unreachable-server errors instead of showing raw error codes
 - Quick Translate keyboard actions (Enter, ⌘⇧C, ⌘/) no longer depend on window focus timing
 - Quick Translate: pressing Enter while an IME composition is in progress (e.g. Korean) now commits the text instead of translating with the last word missing
+- Drag translate via its shortcut now waits for modifier keys to be released before simulating ⌘C, fixing empty results in apps that don't support text-selection accessibility (PDF viewers, some browsers)
+- Unexpected cloud-engine HTTP errors are now shown in the app language instead of raw English
 - Quick Translate keeps the selected languages when the panel is reopened
 - Language pack status in Settings and onboarding loads in parallel and no longer flickers between states
 - Onboarding shows a clear message for unsupported languages instead of an endless spinner
