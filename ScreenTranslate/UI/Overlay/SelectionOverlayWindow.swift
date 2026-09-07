@@ -3,7 +3,13 @@ import SwiftUI
 
 /// NSHostingView의 두 가지 커서 관리 경로(resetCursorRects, cursorUpdate)를
 /// 모두 차단하고 십자 커서를 강제하는 서브클래스.
-private final class CrosshairHostingView<Content: View>: NSHostingView<Content> {
+/// NOTE: 제네릭이 아니라 구체 타입으로 선언한다 — CI(Xcode 26.6, Swift 6.3.3)의
+/// EarlyPerfInliner가 제네릭 NSHostingView 서브클래스의 deinit을 Release(-O)
+/// 최적화하다 크래시한다 (v1.5.3 첫 배포 시도 로그). 이 뷰는 SelectionOverlayView만
+/// 호스팅하므로 제네릭이 필요 없다.
+private final class CrosshairHostingView: NSHostingView<SelectionOverlayView> {
+    deinit {}
+
     override func resetCursorRects() {
         // super 호출 안함 — NSHostingView의 기본 화살표 커서를 십자 커서로 완전 대체
         addCursorRect(bounds, cursor: .crosshair)
