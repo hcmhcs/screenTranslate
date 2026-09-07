@@ -96,6 +96,18 @@ final class FontManager {
 
     // MARK: - Font Resolution
 
+    /// 설정의 폰트 이름으로 로드 가능한 PostScript 이름을 찾는다.
+    /// 설치 목록(id) → PostScript 직접 조회 순서로 해석하며, 없으면 nil.
+    private func resolvedFontName(for setting: String) -> String? {
+        if let installed = installedFonts.first(where: { $0.id == setting }) {
+            return installed.postScriptName
+        }
+        if NSFont(name: setting, size: 12) != nil {
+            return setting
+        }
+        return nil
+    }
+
     /// Returns an NSFont for the current `popupFontName` setting.
     /// Falls back to system font if the named font is not found.
     func font(size: CGFloat) -> NSFont {
@@ -105,15 +117,7 @@ final class FontManager {
             return NSFont.systemFont(ofSize: size)
         }
 
-        // Try installed fonts by id
-        if let installed = installedFonts.first(where: { $0.id == name }) {
-            if let font = NSFont(name: installed.postScriptName, size: size) {
-                return font
-            }
-        }
-
-        // Try direct PostScript name lookup
-        if let font = NSFont(name: name, size: size) {
+        if let resolved = resolvedFontName(for: name), let font = NSFont(name: resolved, size: size) {
             return font
         }
 
@@ -129,13 +133,8 @@ final class FontManager {
             return .system(size: size)
         }
 
-        if let installed = installedFonts.first(where: { $0.id == name }) {
-            return .custom(installed.postScriptName, size: size)
-        }
-
-        // Try direct name
-        if NSFont(name: name, size: size) != nil {
-            return .custom(name, size: size)
+        if let resolved = resolvedFontName(for: name) {
+            return .custom(resolved, size: size)
         }
 
         return .system(size: size)
@@ -281,6 +280,7 @@ final class FontManager {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         downloadProgress = 0
+        defer { downloadDelegate = nil }  // 에러로 종료할 때도 delegate가 남지 않게
 
         let tempURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let delegate = DownloadProgressDelegate(
@@ -306,7 +306,6 @@ final class FontManager {
         }
 
         downloadProgress = 1.0
-        downloadDelegate = nil
 
         let fileName = url.lastPathComponent
         let destURL = dir.appendingPathComponent(fileName)
@@ -348,11 +347,6 @@ final class FontManager {
     /// Checks if a catalog font is already installed.
     func isInstalled(_ catalogFont: CatalogFont) -> Bool {
         installedFonts.contains(where: { $0.id == catalogFont.id })
-    }
-
-    /// Returns the installed font ID matching a catalog font, if installed.
-    func installedFontId(for catalogFont: CatalogFont) -> String? {
-        installedFonts.first(where: { $0.id == catalogFont.id })?.id
     }
 
     /// 파일명에서 폰트 id를 만든다 ("NotoSans-Regular.otf" → "notosans").
