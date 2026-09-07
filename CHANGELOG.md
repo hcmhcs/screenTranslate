@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cancelled cloud-engine translations no longer leave a failed entry in history
 - Cloud engines (DeepL, Google, Azure) now explain offline, timeout, and unreachable-server errors instead of showing raw error codes
 - Quick Translate keyboard actions (Enter, ⌘⇧C, ⌘/) no longer depend on window focus timing
+- Quick Translate: pressing Enter while an IME composition is in progress (e.g. Korean) now commits the text instead of translating with the last word missing
 - Quick Translate keeps the selected languages when the panel is reopened
 - Language pack status in Settings and onboarding loads in parallel and no longer flickers between states
 - Onboarding shows a clear message for unsupported languages instead of an endless spinner
