@@ -76,12 +76,37 @@ enum TextGrabber {
     /// 폴백 재진입 방지 — 동시에 두 번 실행되면 백업/복원이 서로 꼬인다
     private static var isCopyFallbackRunning = false
 
+    /// GitHub 이슈 #1: 단축키 keyUp 직후에는 사용자가 아직 ⌘·⌥·⇧·⌃를 누르고 있다.
+    /// 이 상태에서 합성 Cmd+C를 보내면 이벤트 플래그가 물리적 보조키 상태와 병합되어
+    /// 타겟 앱에 ⌘⌥C처럼 전달되고, 복사가 실행되지 않아 번역이 빈 결과로 끝난다
+    /// (AX API로 선택 텍스트를 주지 않는 앱 — PDF 뷰어·일부 브라우저 — 에서 재현).
+    /// 복사를 방해하는 보조키가 물리적으로 떨어질 때까지 폴링하며 기다린다.
+    private static func waitForShortcutModifierRelease(timeout: TimeInterval = 0.4) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if Task.isCancelled { return }
+            if copyBlockingModifiers(CGEventSource.flagsState(.hidSystemState)).isEmpty { return }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        // 타임아웃 — 현재와 동일하게 그대로 시도한다 (현행 동작이 최악의 경우)
+    }
+
+    /// 복사를 방해할 수 있는 물리적 보조키. ⌘은 합성 이벤트가 직접 심으므로 제외.
+    /// fn·capsLock·numericPad 플래그는 Cmd+C 의미를 바꾸지 않아 제외.
+    static func copyBlockingModifiers(_ flags: CGEventFlags) -> CGEventFlags {
+        flags.intersection([.maskShift, .maskAlternate, .maskControl])
+    }
+
     /// CGEvent로 Cmd+C를 전송하고 클립보드에서 텍스트를 읽는다.
     /// 클립보드는 모든 타입을 스냅샷해 두었다가 그대로 복원한다 (C3).
     private static func tryCopyFallback() async -> String? {
         guard !isCopyFallbackRunning else { return nil }
         isCopyFallbackRunning = true
         defer { isCopyFallbackRunning = false }
+
+        // 합성 Cmd+C를 보내기 전에 단축키 보조키가 떨어질 때까지 잠깐 기다린다 (이슈 #1).
+        await waitForShortcutModifierRelease()
+        if Task.isCancelled { return nil }  // 대기 중 밀려났으면 합성 키를 보내지 않는다
 
         let pasteboard = NSPasteboard.general
         let originalChangeCount = pasteboard.changeCount
