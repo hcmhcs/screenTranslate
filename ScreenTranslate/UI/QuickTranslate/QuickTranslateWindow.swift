@@ -121,6 +121,13 @@ final class QuickTranslateWindow: NSPanel {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.isVisible else { return event }
 
+            // IME 조합 중(한글 등 marked text)이면 이벤트를 가로채지 않고 통과시킨다.
+            // 로컬 모니터는 responder chain보다 먼저 keyDown을 받으므로, Enter를 소비하면
+            // 조합이 커밋되지 않은 채 번역이 실행되어 마지막 단어가 빠진다.
+            if let textView = self.firstResponder as? NSTextView, textView.hasMarkedText() {
+                return event
+            }
+
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let hasCmd = flags.contains(.command)
             let hasShift = flags.contains(.shift)
