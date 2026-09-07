@@ -7,6 +7,7 @@ final class DeepLTranslationProvider: TranslationProvider {
     let requiresAPIKey = true
 
     private let apiKey: String
+    private let client: HTTPClient
 
     /// Free 플랜: api-free.deepl.com, Pro 플랜: api.deepl.com
     private var baseURL: String {
@@ -15,8 +16,9 @@ final class DeepLTranslationProvider: TranslationProvider {
             : "https://api.deepl.com/v2/translate"
     }
 
-    init(apiKey: String) {
+    init(apiKey: String, client: HTTPClient = URLSession.shared) {
         self.apiKey = apiKey
+        self.client = client
     }
 
     func translate(text: String, from source: Locale.Language?, to target: Locale.Language) async throws -> String {
@@ -26,7 +28,7 @@ final class DeepLTranslationProvider: TranslationProvider {
             "split_sentences": "nonewlines"
         ]
         if let source {
-            body["source_lang"] = LanguageCodeMapper.toDeepLCode(source)
+            body["source_lang"] = LanguageCodeMapper.toDeepLCode(source, asSource: true)
         }
 
         var request = URLRequest(url: URL(string: baseURL)!)
@@ -36,26 +38,29 @@ final class DeepLTranslationProvider: TranslationProvider {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 30
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw TranslationError.translationFailed("Invalid response")
-        }
+        let (data, http) = try await TranslationHTTP.perform(request, using: client)
 
         switch http.statusCode {
         case 200: break
         case 403: throw TranslationError.apiKeyMissing
         case 456: throw TranslationError.translationFailed(L10n.quotaExceeded)
         case 429: throw TranslationError.translationFailed(L10n.quotaExceeded)
-        default:  throw TranslationError.translationFailed("DeepL HTTP \(http.statusCode)")
+        default:  throw TranslationError.translationFailed(L10n.engineHttpError("DeepL", status: http.statusCode))
         }
 
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let translations = json?["translations"] as? [[String: Any]]
-        guard let translatedText = translations?.first?["text"] as? String else {
-            throw TranslationError.translationFailed("Invalid response format")
+        guard let response = try? JSONDecoder().decode(Response.self, from: data),
+              let translatedText = response.translations.first?.text else {
+            throw TranslationError.translationFailed(L10n.invalidServerResponse)
         }
-
         return translatedText
+    }
+}
+
+private extension DeepLTranslationProvider {
+    struct Response: Decodable {
+        struct Translation: Decodable {
+            let text: String
+        }
+        let translations: [Translation]
     }
 }

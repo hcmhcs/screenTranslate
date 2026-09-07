@@ -4,8 +4,8 @@ import Testing
 
 /// AppSettings의 순수 데이터 및 기본값 검증.
 /// UserDefaults를 수정하는 테스트는 상태 오염 방지를 위해 직렬 실행한다.
-@Suite(.serialized)
-struct AppSettingsTests {
+extension SerializedDefaultsSuite {
+@Suite struct AppSettingsTests {
 
     // MARK: - 지원 언어 목록 (순수 데이터)
 
@@ -39,7 +39,7 @@ struct AppSettingsTests {
         }
 
         UserDefaults.standard.removeObject(forKey: key)
-        #expect(AppSettings.shared.translationProviderName == "Apple Translation")
+        #expect(AppSettings.shared.translationProviderName == .apple)
     }
 
     @Test("default ocrTextPreprocessing is true")
@@ -151,4 +151,5 @@ struct AppSettingsTests {
         AppSettings.shared.popupFontName = "pretendard"
         #expect(UserDefaults.standard.string(forKey: key) == "pretendard")
     }
+}
 }

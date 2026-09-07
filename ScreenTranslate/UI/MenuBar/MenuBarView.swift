@@ -47,7 +47,7 @@ struct MenuBarView: View {
                 Button(L10n.showAll) {
                     AppOrchestrator.shared.showHistory()
                 }
-                .keyboardShortcut("H", modifiers: [.command, .shift])
+                .keyboardShortcut("h", modifiers: [.command, .shift])
             }
         }
 

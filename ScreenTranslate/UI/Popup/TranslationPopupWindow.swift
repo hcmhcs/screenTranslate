@@ -26,6 +26,10 @@ final class TranslationPopupWindow: NSPanel {
         )
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     /// H1: NSHostingView를 재사용하여 rootView만 교체한다.
     /// 매번 새 NSHostingView를 생성하면 뷰 트리가 처음부터 재구성되어 깜빡임이 발생한다.
     private var hostingView: NSHostingView<TranslationPopupView>?
@@ -119,7 +123,7 @@ final class TranslationPopupWindow: NSPanel {
     func updateState(_ state: TranslationCoordinator.State, near selectionRect: CGRect, on screen: NSScreen? = nil) {
         currentState = state
         lastSelectionRect = selectionRect
-        lastScreen = screen
+        if let screen { lastScreen = screen }  // nil로 호출돼도 직전의 올바른 화면을 버리지 않는다
 
         let popupView = makePopupView(state: state)
 
@@ -139,15 +143,14 @@ final class TranslationPopupWindow: NSPanel {
         // 크기 변화 없으면 프레임 업데이트 스킵 (폴링에 의한 중복 애니메이션 방지)
         if abs(newSize.width - frame.width) < 1 && abs(newSize.height - frame.height) < 1 { return }
 
-        // 상단 y좌표 (AppKit 기준)
-        let currentTopY = frame.origin.y + frame.height
         var origin = frame.origin
         let heightDiff = newSize.height - frame.height
         origin.y -= heightDiff  // AppKit 좌하단 원점 → y를 줄여야 상단 고정
 
         // 화면 경계 클램핑
-        let targetScreen = screen ?? lastScreen ?? NSScreen.main!
-        clampToScreen(origin: &origin, size: &newSize, screen: targetScreen)
+        if let targetScreen = resolvedScreen(screen) {
+            clampToScreen(origin: &origin, size: &newSize, screen: targetScreen)
+        }
 
         animateFrame(to: NSRect(origin: origin, size: newSize))
     }
@@ -185,14 +188,14 @@ final class TranslationPopupWindow: NSPanel {
             let newSize = NSSize(width: currentWidth, height: newHeight)
 
             // 좌상단 고정 위치 조정
-            let currentTopY = self.frame.origin.y + self.frame.height
             var origin = self.frame.origin
             origin.y -= heightDiff
 
             // 화면 경계 클램핑
-            let screen = lastScreen ?? NSScreen.main!
             var adjustedSize = newSize
-            clampToScreen(origin: &origin, size: &adjustedSize, screen: screen)
+            if let screen = resolvedScreen(nil) {
+                clampToScreen(origin: &origin, size: &adjustedSize, screen: screen)
+            }
 
             animateFrame(to: NSRect(origin: origin, size: adjustedSize))
             return
@@ -208,8 +211,9 @@ final class TranslationPopupWindow: NSPanel {
             newOrigin.y -= heightDiff
 
             // 화면 경계 클램핑
-            let screen = lastScreen ?? NSScreen.main!
-            clampToScreen(origin: &newOrigin, size: &newSize, screen: screen)
+            if let screen = resolvedScreen(nil) {
+                clampToScreen(origin: &newOrigin, size: &newSize, screen: screen)
+            }
         } else {
             newOrigin = calculateOrigin(near: lastSelectionRect, popupSize: newSize, on: lastScreen)
         }
@@ -250,7 +254,10 @@ final class TranslationPopupWindow: NSPanel {
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 self.animator().setFrame(newFrame, display: true)
             }, completionHandler: { [weak self] in
-                self?.isUpdatingPosition = false
+                // NSAnimationContext 완료 핸들러는 메인 스레드에서 불리지만 @Sendable로 선언되어 있다
+                MainActor.assumeIsolated {
+                    self?.isUpdatingPosition = false
+                }
             })
         } else {
             setFrame(newFrame, display: true)
@@ -261,23 +268,38 @@ final class TranslationPopupWindow: NSPanel {
     /// 주어진 origin과 size를 화면 경계 내로 보정한다.
     /// 좌상단(AppKit의 top = origin.y + height) 기준 고정.
     private func clampToScreen(origin: inout NSPoint, size: inout NSSize, screen: NSScreen) {
+        // M13: 메뉴바·Dock을 제외한 보이는 영역 기준으로 보정한다
+        let visible = screen.visibleFrame
         let currentTopY = origin.y + size.height
         let gap: CGFloat = 8
 
         // 하단 넘침 → 높이 축소
-        if origin.y < screen.frame.minY + gap {
-            let maxHeight = currentTopY - (screen.frame.minY + gap)
+        if origin.y < visible.minY + gap {
+            let maxHeight = currentTopY - (visible.minY + gap)
             size.height = max(minResizeHeight, maxHeight)
             origin.y = currentTopY - size.height
         }
 
+        // 상단 넘침 (메뉴바) → 아래로 내림
+        if origin.y + size.height > visible.maxY - gap {
+            origin.y = visible.maxY - gap - size.height
+        }
+
         // 우측 넘침
-        if origin.x + size.width > screen.frame.maxX - gap {
-            origin.x = screen.frame.maxX - size.width - gap
+        if origin.x + size.width > visible.maxX - gap {
+            origin.x = visible.maxX - size.width - gap
         }
 
         // 좌측 넘침
-        origin.x = max(origin.x, screen.frame.minX + gap)
+        origin.x = max(origin.x, visible.minX + gap)
+
+        // 최종 보정: 높이가 최소값에 막혀 보이는 영역보다 클 때도 하단이 Dock 아래로 내려가지 않게
+        origin.y = max(origin.y, visible.minY + gap)
+    }
+
+    /// H6: NSScreen.main은 디스플레이 재구성 중 nil일 수 있다. 강제 언랩 대신 이 헬퍼를 쓴다.
+    private func resolvedScreen(_ preferred: NSScreen?) -> NSScreen? {
+        preferred ?? lastScreen ?? NSScreen.main ?? NSScreen.screens.first
     }
 
     // MARK: - 동적 크기 계산
@@ -341,8 +363,12 @@ final class TranslationPopupWindow: NSPanel {
     /// 오버레이가 전체 화면이므로 윈도우-로컬 == 스크린-로컬(좌상단)이다.
     /// AppKit의 NSWindow.setFrameOrigin은 좌하단 원점을 기대하므로 Y축 변환이 필요하다.
     private func calculateOrigin(near selectionRect: CGRect, popupSize: NSSize, on screen: NSScreen?) -> NSPoint {
-        let targetScreen = screen ?? NSScreen.main!
-        let screenFrame = targetScreen.frame
+        guard let targetScreen = resolvedScreen(screen) else {
+            // 화면 정보를 얻을 수 없으면 (디스플레이 재구성 중) 선택 영역 좌표를 그대로 쓴다
+            return NSPoint(x: selectionRect.origin.x, y: selectionRect.origin.y)
+        }
+        let screenFrame = targetScreen.frame        // 좌표 변환 기준 (전체 프레임)
+        let visible = targetScreen.visibleFrame     // 경계 검사 기준 (메뉴바·Dock 제외, M13)
         let popupWidth = popupSize.width
         let popupHeight = popupSize.height
         let gap: CGFloat = 8
@@ -358,20 +384,28 @@ final class TranslationPopupWindow: NSPanel {
         )
 
         // 하단이 화면 밖 -> 선택 영역 상단으로
-        if origin.y < screenFrame.minY {
+        if origin.y < visible.minY {
             let appKitSelectionTop = screenFrame.maxY - selectionRect.minY
             origin.y = appKitSelectionTop + gap
         }
 
+        // 위로 뒤집었는데 상단이 메뉴바를 넘으면 보이는 영역 안으로 내린다
+        if origin.y + popupHeight > visible.maxY {
+            origin.y = visible.maxY - popupHeight - gap
+        }
+
         // 오른쪽이 화면 밖 -> 왼쪽으로 보정
-        if origin.x + popupWidth > screenFrame.maxX {
-            origin.x = screenFrame.maxX - popupWidth - gap
+        if origin.x + popupWidth > visible.maxX {
+            origin.x = visible.maxX - popupWidth - gap
         }
 
         // 왼쪽이 화면 밖 -> 최소 gap 유지
-        if origin.x < screenFrame.minX {
-            origin.x = screenFrame.minX + gap
+        if origin.x < visible.minX {
+            origin.x = visible.minX + gap
         }
+
+        // 최종 보정: 팝업이 보이는 영역보다 커도 하단이 Dock 아래로 내려가지 않게
+        origin.y = max(origin.y, visible.minY + gap)
 
         return origin
     }
@@ -384,8 +418,12 @@ final class TranslationPopupWindow: NSPanel {
 
     // MARK: - 앱 activate 시 보조 윈도우 보호
 
+    /// 닫힘 알림 — AppOrchestrator가 외부 클릭 모니터를 정리하는 데 사용
+    var onDidClose: (() -> Void)?
+
     override func close() {
         super.close()
+        onDidClose?()
         // super.close() 후 macOS가 설정/About 등을 key window로 선택하여
         // 앞으로 올라올 수 있다. 다음 run loop에서 orderBack하여 되돌린다.
         // (동기 orderBack은 super.close() 후 macOS 자동 선택에 의해 무효화됨)

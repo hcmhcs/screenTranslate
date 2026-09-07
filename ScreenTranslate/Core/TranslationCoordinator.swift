@@ -16,7 +16,7 @@ final class TranslationCoordinator {
         }
     }
 
-    /// 외부 관찰자가 상태 변경을 수신하는 스트림.
+    /// 외부 관찰자가 상태 변경을 수신하는 스트림의 continuation.
     /// willSet에서 이전 continuation을 finish()하여 레이스 컨디션을 방지한다.
     private var stateContinuation: AsyncStream<State>.Continuation? {
         willSet {
@@ -24,7 +24,10 @@ final class TranslationCoordinator {
         }
     }
 
-    var stateStream: AsyncStream<State> {
+    /// 상태 변경 스트림을 새로 만든다. 구독자는 한 번에 하나뿐이다:
+    /// 새 스트림을 만들면 이전 스트림은 종료된다. (computed property였을 때는
+    /// 접근할 때마다 이전 구독이 조용히 끊겨 호출부에 우회 주석이 필요했다.)
+    func makeStateStream() -> AsyncStream<State> {
         AsyncStream(bufferingPolicy: .bufferingNewest(10)) { continuation in
             self.stateContinuation = continuation
             continuation.yield(state)
@@ -33,6 +36,17 @@ final class TranslationCoordinator {
 
     /// H4: 진행 중인 Task 참조를 보관하여 ESC 취소를 지원한다.
     private var currentTask: Task<Void, Never>?
+
+    /// C1: 실행 토큰. startProcessing/cancel마다 갱신되며,
+    /// 취소된 이전 실행이 뒤늦게 깨어나 state를 덮어쓰는 것을 막는다.
+    /// (Task.cancel()은 continuation에 매달린 Task를 즉시 깨우지 못하므로 토큰 검사가 필요하다)
+    @ObservationIgnored private var runToken = UUID()
+
+    /// 토큰이 현재 실행과 일치할 때만 state를 바꾼다.
+    private func setState(_ newState: State, ifCurrent token: UUID) {
+        guard token == runToken else { return }
+        state = newState
+    }
 
     nonisolated enum State: Equatable {
         case idle
@@ -82,6 +96,8 @@ final class TranslationCoordinator {
     /// C4: 각 단계 사이에서 state를 변경하여 UI가 중간 상태를 관찰할 수 있게 한다.
     func startProcessing(image: CGImage, preprocessOCR: Bool = false) {
         currentTask?.cancel()
+        let token = UUID()
+        runToken = token
         // 동기적으로 state를 즉시 변경 — Task 내부에서 설정하면
         // 폴링 루프가 .idle을 먼저 감지하여 즉시 break되는 레이스 컨디션 발생
         state = .recognizing
@@ -95,7 +111,7 @@ final class TranslationCoordinator {
                 logger.debug("타겟 언어: \(self.targetLanguage.minimalIdentifier)")
 
                 // C4: OCR 완료 후, 번역 호출 전에 state를 변경해야 UI가 "번역 중..." 표시
-                state = .translating
+                setState(.translating, ifCurrent: token)
 
                 // OCR 텍스트 전처리: 줄바꿈을 공백으로 치환하여 번역 품질 향상
                 let textForTranslation: String
@@ -121,19 +137,9 @@ final class TranslationCoordinator {
                     lowConfidence: ocrResult.confidence < 0.3,
                     sourceLanguage: effectiveSource
                 )
-                state = .completed(result)
-            } catch is CancellationError {
-                state = .idle  // 조용히 취소
-            } catch OCRError.noTextFound {
-                state = .failed(L10n.noTextFound)
-            } catch TranslationError.languageNotSupported {
-                state = .failed(L10n.unsupportedLanguagePair)
-            } catch TranslationError.autoDetectFailed(let underlying) {
-                logger.warning("자동 감지 번역 실패: \(underlying)")
-                state = .failed(L10n.autoDetectFailedMessage)
+                setState(.completed(result), ifCurrent: token)
             } catch {
-                logger.error("번역 파이프라인 에러: \(error)")
-                state = .failed(error.localizedDescription)
+                handlePipelineError(error, token: token, context: "번역 파이프라인")
             }
         }
     }
@@ -142,6 +148,8 @@ final class TranslationCoordinator {
     /// C4: 각 단계 사이에서 state를 변경하여 UI가 중간 상태를 관찰할 수 있게 한다.
     func startProcessing(text: String) {
         currentTask?.cancel()
+        let token = UUID()
+        runToken = token
 
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             state = .failed(L10n.noSelectedText)
@@ -166,18 +174,32 @@ final class TranslationCoordinator {
                     lowConfidence: false,
                     sourceLanguage: effectiveSource
                 )
-                state = .completed(result)
-            } catch is CancellationError {
-                state = .idle
-            } catch TranslationError.languageNotSupported {
-                state = .failed(L10n.unsupportedLanguagePair)
-            } catch TranslationError.autoDetectFailed(let underlying) {
-                logger.warning("자동 감지 드래그 번역 실패: \(underlying)")
-                state = .failed(L10n.autoDetectFailedMessage)
+                setState(.completed(result), ifCurrent: token)
             } catch {
-                logger.error("드래그 번역 에러: \(error)")
-                state = .failed(error.localizedDescription)
+                handlePipelineError(error, token: token, context: "드래그 번역")
             }
+        }
+    }
+
+    /// 파이프라인 에러를 상태로 변환한다. 취소 계열(CancellationError, URLError.cancelled)은 .idle.
+    /// 모든 쓰기는 토큰 검사를 거치므로, 이미 취소·교체된 실행의 에러는 무시된다.
+    private func handlePipelineError(_ error: Error, token: UUID, context: String) {
+        switch error {
+        case is CancellationError:
+            setState(.idle, ifCurrent: token)  // 조용히 취소
+        case let urlError as URLError where urlError.code == .cancelled:
+            // M11: URLSession은 취소 시 CancellationError가 아니라 URLError(.cancelled)를 던진다
+            setState(.idle, ifCurrent: token)
+        case OCRError.noTextFound:
+            setState(.failed(L10n.noTextFound), ifCurrent: token)
+        case TranslationError.languageNotSupported:
+            setState(.failed(L10n.unsupportedLanguagePair), ifCurrent: token)
+        case TranslationError.autoDetectFailed(let underlying):
+            logger.warning("\(context) 자동 감지 실패: \(underlying)")
+            setState(.failed(L10n.autoDetectFailedMessage), ifCurrent: token)
+        default:
+            logger.error("\(context) 에러: \(error)")
+            setState(.failed(error.localizedDescription), ifCurrent: token)
         }
     }
 
@@ -185,11 +207,8 @@ final class TranslationCoordinator {
     func cancel() {
         currentTask?.cancel()
         currentTask = nil
+        runToken = UUID()  // 이후 깨어나는 이전 Task의 상태 쓰기를 무효화
         state = .idle
-    }
-
-    func reset() {
-        cancel()
     }
 
     /// 런타임에 Provider를 교체한다 (설정 변경 시).

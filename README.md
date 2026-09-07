@@ -120,6 +120,10 @@ open ScreenTranslate.xcodeproj
 
 Build and run with Xcode 16+.
 
+## Uninstall
+
+To remove ScreenTranslate completely — app, settings, API keys, history, fonts, and permission grants — see **[UNINSTALL.md](UNINSTALL.md)** (English / 한국어).
+
 ## Getting Started
 
 1. Launch ScreenTranslate — it appears in your **menu bar**

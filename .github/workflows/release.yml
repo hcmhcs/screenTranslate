@@ -315,7 +315,8 @@ jobs:
 
     # 18. GitHub Release 생성
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      # 서드파티 액션은 태그 하이재킹에 대비해 커밋 SHA로 고정 (v1, 2026-09-03 확인)
+      uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
       with:
         files: |
           ${{ runner.temp }}/ScreenTranslate-${{ steps.version.outputs.VERSION }}.dmg

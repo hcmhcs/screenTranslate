@@ -1,35 +1,40 @@
 import AppKit
 import SwiftUI
+import TelemetryDeck
 
 final class QuickTranslateWindow: NSPanel {
-    /// 별도 TranslationCoordinator — OCR/드래그 번역과 독립적으로 동작.
+    /// 패널의 상태와 동작. 별도 TranslationCoordinator를 소유해 OCR/드래그 번역과 독립적으로 동작한다.
     /// QuickTranslate는 OCR을 사용하지 않지만, TranslationCoordinator가
     /// ocrProvider를 required param으로 받으므로 dummy로 주입한다.
-    let coordinator: TranslationCoordinator
+    let model: QuickTranslateModel
+
+    var coordinator: TranslationCoordinator { model.coordinator }
 
     // MARK: - 크기 상수
 
     static let panelWidth: CGFloat = 400
     static let panelHeight: CGFloat = 320
 
-    /// Enter 번역 실행 콜백 — SwiftUI 뷰에서 설정
-    var onTranslateAction: (() -> Void)?
-
-    /// Cmd+Shift+C 결과 복사 콜백 — SwiftUI 뷰에서 설정
-    var onCopyResultAction: (() -> Void)?
-
-    /// Cmd+/ 언어 스왑 콜백 — SwiftUI 뷰에서 설정
-    var onSwapAction: (() -> Void)?
-
     private var keyMonitor: Any?
 
     init() {
-        self.coordinator = TranslationCoordinator(
+        let coordinator = TranslationCoordinator(
             ocrProvider: VisionOCRProvider(),
             translationProvider: TranslationProviderFactory.make(
-                name: AppSettings.shared.translationProviderName
+                AppSettings.shared.translationProviderName
             ),
             targetLanguage: AppSettings.shared.targetLanguage
+        )
+        self.model = QuickTranslateModel(
+            coordinator: coordinator,
+            historyManager: AppOrchestrator.shared.historyManager,
+            sourceLanguageCode: AppSettings.shared.sourceLanguageCode,
+            targetLanguageCode: AppSettings.shared.targetLanguageCode,
+            autoCopyEnabled: { AppSettings.shared.autoCopyToClipboard },
+            copyToClipboard: { Clipboard.copy($0) },
+            telemetry: { engine in
+                TelemetryDeck.signal("quickTranslateCompleted", parameters: ["engine": engine])
+            }
         )
 
         super.init(
@@ -56,9 +61,13 @@ final class QuickTranslateWindow: NSPanel {
     /// 패널 표시 — 화면 상단 중앙에 위치
     func showPanel() {
         let panelSize = NSSize(width: Self.panelWidth, height: Self.panelHeight)
+        model.adoptSettingsLanguages(
+            source: AppSettings.shared.sourceLanguageCode,
+            target: AppSettings.shared.targetLanguageCode
+        )
 
         if hostingView == nil {
-            let view = QuickTranslateView(coordinator: coordinator)
+            let view = QuickTranslateView(model: model)
             let hv = NSHostingView(rootView: view)
             hv.sizingOptions = []
             hv.frame = CGRect(origin: .zero, size: panelSize)
@@ -74,17 +83,14 @@ final class QuickTranslateWindow: NSPanel {
         installKeyMonitor()
     }
 
-    /// 패널 숨기기 — 상태 초기화.
-    /// hostingView를 파괴하여 다음 showPanel()에서 @State가 초기값으로 리셋된다.
+    /// 패널 숨기기 — 입력·결과를 비운다 (언어 선택은 모델에 남아 다음에 열 때 유지).
+    /// hostingView는 파괴해 다음 showPanel()에서 onAppear가 다시 실행되어 입력창에 포커스가 간다.
     func hidePanel() {
         removeKeyMonitor()
         orderOut(nil)
-        coordinator.cancel()
+        model.resetForNewSession()
         hostingView = nil
         contentView = nil
-        onTranslateAction = nil
-        onCopyResultAction = nil
-        onSwapAction = nil
         DispatchQueue.main.async {
             NSApp.orderBackAuxiliaryWindows()
         }
@@ -93,7 +99,7 @@ final class QuickTranslateWindow: NSPanel {
     /// 번역 엔진 변경 시 provider 갱신
     func updateTranslationProvider() {
         let provider = TranslationProviderFactory.make(
-            name: AppSettings.shared.translationProviderName
+            AppSettings.shared.translationProviderName
         )
         coordinator.updateProvider(provider)
     }
@@ -109,10 +115,18 @@ final class QuickTranslateWindow: NSPanel {
     /// 키보드 이벤트 모니터 설치 — Enter(번역), Cmd+Shift+C(복사), Cmd+/(스왑)
     /// flags 비교에 `.contains()` 패턴을 사용하여 .function, .capsLock 등
     /// 추가 플래그가 있어도 안정적으로 동작한다.
+    /// 모델을 직접 호출하므로 뷰가 keyWindow를 찾아 콜백을 꽂던 타이밍 문제가 없다.
     private func installKeyMonitor() {
         removeKeyMonitor()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.isVisible else { return event }
+
+            // IME 조합 중(한글 등 marked text)이면 이벤트를 가로채지 않고 통과시킨다.
+            // 로컬 모니터는 responder chain보다 먼저 keyDown을 받으므로, Enter를 소비하면
+            // 조합이 커밋되지 않은 채 번역이 실행되어 마지막 단어가 빠진다.
+            if let textView = self.firstResponder as? NSTextView, textView.hasMarkedText() {
+                return event
+            }
 
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let hasCmd = flags.contains(.command)
@@ -125,7 +139,7 @@ final class QuickTranslateWindow: NSPanel {
             if event.keyCode == 36 {  // 36 = Return
                 if hasShift { return event }  // Shift+Enter → 줄바꿈
                 if !hasCmd && !hasOption && !hasControl {
-                    self.onTranslateAction?()
+                    self.model.translate()
                     return nil  // 이벤트 소비
                 }
                 return event
@@ -134,14 +148,14 @@ final class QuickTranslateWindow: NSPanel {
             // Cmd+Shift+C → 결과 복사 (keyCode 8 = C키, 입력기 무관)
             if hasCmd && hasShift && !hasOption && !hasControl
                 && event.keyCode == 8 {
-                self.onCopyResultAction?()
+                self.model.copyResult()
                 return nil
             }
 
             // Cmd+/ → 언어 스왑 (keyCode 44 또는 문자 "/" 이중 매칭)
             if hasCmd && !hasShift && !hasOption && !hasControl
                 && (event.keyCode == 44 || event.charactersIgnoringModifiers == "/") {
-                self.onSwapAction?()
+                self.model.swapLanguages()
                 return nil
             }
 
@@ -168,7 +182,7 @@ final class QuickTranslateWindow: NSPanel {
 
     override func close() {
         removeKeyMonitor()
-        coordinator.cancel()
+        model.resetForNewSession()
         super.close()
         DispatchQueue.main.async {
             NSApp.orderBackAuxiliaryWindows()

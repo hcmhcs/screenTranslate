@@ -13,7 +13,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run github-repo-stats
-        uses: jgehrcke/github-repo-stats@v1.4.2
+        # 서드파티 액션은 태그 하이재킹에 대비해 커밋 SHA로 고정 (v1.4.2, 2026-09-03 확인)
+        uses: jgehrcke/github-repo-stats@306db38ad131cab2aa5f2cd3062bf6f8aa78c1aa # v1.4.2
         with:
           ghtoken: ${{ secrets.REPO_STATS_TOKEN }}
           repository: hcmhcs/screenTranslate

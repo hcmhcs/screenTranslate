@@ -15,7 +15,8 @@ enum TextGrabber {
 
     /// 권한 요청 다이얼로그 트리거 (시스템 설정 유도)
     static func requestAccessibilityPermission() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        // kAXTrustedCheckOptionPrompt는 전역 var라 strict concurrency에서 경고 — 문서화된 키 문자열을 직접 쓴다
+        let options = ["AXTrustedCheckOptionPrompt" as CFString: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
 
@@ -23,13 +24,13 @@ enum TextGrabber {
     static func getSelectedText() async -> String? {
         // A: Accessibility API 시도
         if let text = tryAccessibilityAPI(), !text.isEmpty {
-            logger.debug("Accessibility API로 텍스트 획득: \(text.prefix(50))")
+            logger.debug("Accessibility API로 텍스트 획득 (\(text.count)자)")
             return text
         }
 
         // B: Cmd+C fallback
         if let text = await tryCopyFallback(), !text.isEmpty {
-            logger.debug("Cmd+C fallback으로 텍스트 획득: \(text.prefix(50))")
+            logger.debug("Cmd+C fallback으로 텍스트 획득 (\(text.count)자)")
             return text
         }
 
@@ -45,16 +46,16 @@ enum TextGrabber {
 
         // 포커스된 앱의 포커스된 UI 요소 가져오기
         var focusedApp: AnyObject?
-        guard AXUIElementCopyAttributeValue(systemElement, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success else {
+        guard AXUIElementCopyAttributeValue(systemElement, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success,
+              let appElement = asAXUIElement(focusedApp) else {
             return nil
         }
-        let appElement = focusedApp as! AXUIElement  // CoreFoundation 타입 — 캐스트 항상 성공
 
         var focusedElement: AnyObject?
-        guard AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success else {
+        guard AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success,
+              let uiElement = asAXUIElement(focusedElement) else {
             return nil
         }
-        let uiElement = focusedElement as! AXUIElement  // CoreFoundation 타입 — 캐스트 항상 성공
 
         var selectedText: AnyObject?
         guard AXUIElementCopyAttributeValue(uiElement, kAXSelectedTextAttribute as CFString, &selectedText) == .success else {
@@ -64,15 +65,54 @@ enum TextGrabber {
         return selectedText as? String
     }
 
+    /// M9: 일부 앱은 포커스 속성으로 AXUIElement가 아닌 CFType을 돌려준다. 타입 확인 후 변환한다.
+    private static func asAXUIElement(_ value: AnyObject?) -> AXUIElement? {
+        guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return (value as! AXUIElement)  // 타입 ID를 확인했으므로 안전
+    }
+
     // MARK: - B: Cmd+C Fallback
 
+    /// 폴백 재진입 방지 — 동시에 두 번 실행되면 백업/복원이 서로 꼬인다
+    private static var isCopyFallbackRunning = false
+
+    /// GitHub 이슈 #1: 단축키 keyUp 직후에는 사용자가 아직 ⌘·⌥·⇧·⌃를 누르고 있다.
+    /// 이 상태에서 합성 Cmd+C를 보내면 이벤트 플래그가 물리적 보조키 상태와 병합되어
+    /// 타겟 앱에 ⌘⌥C처럼 전달되고, 복사가 실행되지 않아 번역이 빈 결과로 끝난다
+    /// (AX API로 선택 텍스트를 주지 않는 앱 — PDF 뷰어·일부 브라우저 — 에서 재현).
+    /// 복사를 방해하는 보조키가 물리적으로 떨어질 때까지 폴링하며 기다린다.
+    private static func waitForShortcutModifierRelease(timeout: TimeInterval = 0.4) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if Task.isCancelled { return }
+            if copyBlockingModifiers(CGEventSource.flagsState(.hidSystemState)).isEmpty { return }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        // 타임아웃 — 현재와 동일하게 그대로 시도한다 (현행 동작이 최악의 경우)
+    }
+
+    /// 복사를 방해할 수 있는 물리적 보조키. ⌘은 합성 이벤트가 직접 심으므로 제외.
+    /// fn·capsLock·numericPad 플래그는 Cmd+C 의미를 바꾸지 않아 제외.
+    static func copyBlockingModifiers(_ flags: CGEventFlags) -> CGEventFlags {
+        flags.intersection([.maskShift, .maskAlternate, .maskControl])
+    }
+
     /// CGEvent로 Cmd+C를 전송하고 클립보드에서 텍스트를 읽는다.
+    /// 클립보드는 모든 타입을 스냅샷해 두었다가 그대로 복원한다 (C3).
     private static func tryCopyFallback() async -> String? {
+        guard !isCopyFallbackRunning else { return nil }
+        isCopyFallbackRunning = true
+        defer { isCopyFallbackRunning = false }
+
+        // 합성 Cmd+C를 보내기 전에 단축키 보조키가 떨어질 때까지 잠깐 기다린다 (이슈 #1).
+        await waitForShortcutModifierRelease()
+        if Task.isCancelled { return nil }  // 대기 중 밀려났으면 합성 키를 보내지 않는다
+
         let pasteboard = NSPasteboard.general
         let originalChangeCount = pasteboard.changeCount
 
-        // 클립보드 원본 백업
-        let backup = pasteboard.string(forType: .string)
+        // 클립보드 원본 백업 (문자열뿐 아니라 이미지·파일·서식 텍스트 전부)
+        let snapshot = PasteboardSnapshot(of: pasteboard)
 
         // Cmd+C 이벤트 전송
         let source = CGEventSource(stateID: .hidSystemState)
@@ -100,12 +140,7 @@ enum TextGrabber {
         let newText = pasteboard.string(forType: .string)
 
         // 클립보드 원본 복원 (비어있었으면 비운 상태로 복원)
-        if let backup {
-            pasteboard.clearContents()
-            pasteboard.setString(backup, forType: .string)
-        } else {
-            pasteboard.clearContents()
-        }
+        snapshot.restore(to: pasteboard)
 
         guard copySucceeded, let text = newText, !text.isEmpty else {
             return nil

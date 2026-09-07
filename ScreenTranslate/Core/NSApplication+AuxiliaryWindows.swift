@@ -13,3 +13,11 @@ extension NSApplication {
         }
     }
 }
+
+extension NSScreen {
+    /// 마우스 커서가 있는 화면. 못 찾으면 main.
+    static var underMouse: NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        return screens.first(where: { $0.frame.contains(mouse) }) ?? main
+    }
+}

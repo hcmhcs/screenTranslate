@@ -23,6 +23,8 @@ nonisolated enum TranslationError: LocalizedError {
     case languageNotSupported
     case apiKeyMissing
     case autoDetectFailed(String)
+    /// 다른 번역 요청이 시작되어 이 요청이 밀려남 (Apple Translation 브리지는 한 번에 하나만 처리)
+    case superseded
 
     var errorDescription: String? {
         switch self {
@@ -34,6 +36,8 @@ nonisolated enum TranslationError: LocalizedError {
             return L10n.apiKeyInvalid
         case .autoDetectFailed:
             return L10n.autoDetectFailedMessage
+        case .superseded:
+            return L10n.translationSuperseded
         }
     }
 }

@@ -13,11 +13,11 @@ struct AboutView: View {
                 .font(.title2.bold())
 
             VStack(spacing: 4) {
-                Text("Version \(AppVersion.fullVersion)")
+                Text(L10n.aboutVersion(AppVersion.fullVersion))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("Copyright \u{00A9} 2026 hanchangmin")
+                Text(L10n.aboutCopyright)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
