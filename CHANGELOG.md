@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-09-07
+
+### Highlights
+
+- 🔧 Stability update fixing 30+ issues: stuck "Translating..." popups, clipboard losing images and files, shortcut double-firing, and more
+- 🇰🇷 Korean input: pressing Enter while composing text now works correctly in Quick Translate
+- 🖱️ Drag translate via its shortcut works again in PDF viewers and browsers
+
 ### Fixed
 
 - Popup could stay stuck on "Translating..." forever when a new capture started while the previous translation was still running
