@@ -14,6 +14,11 @@ nonisolated enum L10n {
     // MARK: - Menu Bar
 
     static var translate: String { s("Screen Translate", ko: "화면 캡처 번역") }
+    static var liveRegion: String { s("Live · Drag to move", ko: "실시간 · 드래그 이동") }
+    static var liveRegionHelp: String { s("Drag to move the translation area. Drag a corner to resize.", ko: "드래그하여 번역 영역을 이동하고 모서리를 드래그하여 크기를 조절하세요.") }
+    static var resizeLiveRegion: String { s("Drag to resize the translation area", ko: "드래그하여 번역 영역 크기 조절") }
+    static var liveTranslate: String { s("Live Translate…", ko: "실시간 번역…") }
+    static var stopLiveTranslation: String { s("Stop Live Translation", ko: "실시간 번역 중지") }
     static var recentTranslations: String { s("Recent Translations", ko: "최근 번역") }
     static var noHistory: String { s("No history", ko: "히스토리 없음") }
     static var showAll: String { s("Show All...", ko: "모두 보기...") }

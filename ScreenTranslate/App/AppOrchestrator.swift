@@ -15,6 +15,7 @@ import TelemetryDeck
 final class AppOrchestrator {
     static let shared = AppOrchestrator()
 
+    private var liveRegionWindow: LiveTranslationRegionWindow?
     private var overlayWindow: SelectionOverlayWindow?
     private var popupWindow: TranslationPopupWindow?
     private var quickTranslateWindow: QuickTranslateWindow?
@@ -133,17 +134,28 @@ final class AppOrchestrator {
     /// 영역 선택이 진행 중인지 — 권한 확인 await 동안에도 true (H1: 단축키 연타로 오버레이 2개 생성 방지)
     private var isSelectingRegion = false
 
-    func startTranslation() {
+    private(set) var isLiveTranslating = false
+    private var liveSessionID = UUID()
+
+    func stopLiveTranslation() {
+        cancelCurrentWork()
+    }
+
+    func startTranslation(live: Bool = false) {
         // 오버레이가 이미 표시 중이거나 준비 중이면 무시 (중복 호출 방지)
         guard !isSelectingRegion, overlayWindow == nil else { return }
 
         cancelCurrentWork()
         isSelectingRegion = true
+        isLiveTranslating = live
+        let sessionID = liveSessionID
 
         // 권한 확인
         Task {
             let hasPermission = await ScreenCapturer.checkPermission()
+            guard sessionID == liveSessionID else { return }
             guard hasPermission else {
+                isLiveTranslating = false
                 isSelectingRegion = false
                 PermissionGuard.requestScreenRecordingPermission()
                 return
@@ -157,9 +169,16 @@ final class AppOrchestrator {
                 guard let self else { return }
                 self.overlayWindow = nil  // 사용 후 해제
                 self.isSelectingRegion = false
-                guard let rect else { return }
+                guard let rect else {
+                    self.isLiveTranslating = false
+                    return
+                }
                 self.processingTask = Task { @MainActor in
-                    await self.processCapture(rect: rect)
+                    if live {
+                        await self.processLiveCapture(rect: rect)
+                    } else {
+                        await self.processCapture(rect: rect)
+                    }
                 }
             }
         }
@@ -194,6 +213,10 @@ final class AppOrchestrator {
 
     /// 진행 중인 번역 작업을 취소하고 팝업·영역 선택 오버레이를 닫는다.
     private func cancelCurrentWork() {
+        isLiveTranslating = false
+        liveSessionID = UUID()
+        liveRegionWindow?.close()
+        liveRegionWindow = nil
         processingTask?.cancel()
         processingTask = nil
         coordinator.cancel()
@@ -406,6 +429,97 @@ final class AppOrchestrator {
             return
         }
         await runTranslation(.text(clipboardText, trigger: "doubleCopy"))
+    }
+
+    /// OCR keeps sampling while translation runs; a changed subtitle supersedes old work.
+    private func processLiveCapture(rect: CGRect) async {
+        guard let screen = currentScreen ?? NSScreen.main else {
+            isLiveTranslating = false
+            return
+        }
+        let regionWindow = LiveTranslationRegionWindow(rect: rect, screen: screen)
+        liveRegionWindow = regionWindow
+        regionWindow.orderFrontRegardless()
+        defer {
+            regionWindow.close()
+            if liveRegionWindow === regionWindow { liveRegionWindow = nil }
+        }
+        let popup = makePopup()
+        popupWindow = popup
+        popup.onDidClose = { [weak self, weak popup] in
+            guard let self, self.popupWindow === popup, self.isLiveTranslating else { return }
+            self.stopLiveTranslation()
+        }
+        popup.show(state: .recognizing, near: rect, on: screen)
+        regionWindow.onStop = { [weak self] in self?.stopLiveTranslation() }
+        regionWindow.onChange = { [weak self, weak popup] in
+            self?.coordinator.cancel()
+            popup?.orderOut(nil)
+        }
+        let ocr = VisionOCRProvider()
+        var previousRevision = -1
+        var previousText: String?
+        var previousSource: String?
+        var previousTarget: String?
+        var previousEngine: String?
+        let updates = Task { @MainActor in
+            for await state in coordinator.makeStateStream() {
+                guard !Task.isCancelled else { return }
+                guard state == coordinator.state else { continue }
+                switch state {
+                case .completed, .failed:
+                    popup.updateState(state, near: regionWindow.captureRect, on: screen)
+                    popup.orderFrontRegardless()
+                default: break
+                }
+            }
+        }
+        defer { updates.cancel() }
+
+        do {
+            while !Task.isCancelled {
+                let revision = regionWindow.revision
+                let image = try await capturer.capture(rect: regionWindow.captureRect, screen: screen)
+                try Task.checkCancellation()
+                let text: String
+                do {
+                    text = try await ocr.recognize(image: image).text
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                } catch OCRError.noTextFound {
+                    text = ""
+                }
+                try Task.checkCancellation()
+                guard revision == regionWindow.revision else { continue }
+                let source = AppSettings.shared.sourceLanguage
+                let target = AppSettings.shared.targetLanguage
+                let engine = coordinator.translationProvider.name
+                if revision != previousRevision || text != previousText || source?.minimalIdentifier != previousSource
+                    || target.minimalIdentifier != previousTarget || engine != previousEngine {
+                    previousRevision = revision
+                    previousText = text
+                    previousSource = source?.minimalIdentifier
+                    previousTarget = target.minimalIdentifier
+                    previousEngine = engine
+                    coordinator.cancel()
+                    // Never leave a translation for the previous subtitle on screen.
+                    popup.orderOut(nil)
+                    if !text.isEmpty {
+                        coordinator.sourceLanguage = source
+                        coordinator.targetLanguage = target
+                        coordinator.startProcessing(text: AppSettings.shared.ocrTextPreprocessing
+                            ? TranslationCoordinator.preprocessOCRText(text) : text)
+                    }
+                }
+                try await Task.sleep(for: .milliseconds(250))
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            coordinator.cancel()
+            isLiveTranslating = false
+            popup.updateState(.failed(error.localizedDescription), near: rect, on: screen)
+            popup.orderFrontRegardless()
+            installClickOutsideMonitor(for: popup)
+        }
     }
 
     private func processCapture(rect: CGRect) async {
