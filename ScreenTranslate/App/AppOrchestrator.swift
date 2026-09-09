@@ -445,6 +445,7 @@ final class AppOrchestrator {
             if liveRegionWindow === regionWindow { liveRegionWindow = nil }
         }
         let popup = makePopup()
+        popup.followsSelection = true
         popupWindow = popup
         popup.onDidClose = { [weak self, weak popup] in
             guard let self, self.popupWindow === popup, self.isLiveTranslating else { return }
@@ -452,7 +453,9 @@ final class AppOrchestrator {
         }
         popup.show(state: .recognizing, near: rect, on: screen)
         regionWindow.onStop = { [weak self] in self?.stopLiveTranslation() }
-        regionWindow.onChange = { [weak self, weak popup] in
+        regionWindow.onChange = { [weak self, weak popup, weak regionWindow] in
+            guard let regionWindow else { return }
+            popup?.positionFollowingSelection(near: regionWindow.captureRect, on: screen)
             self?.coordinator.cancel()
             popup?.orderOut(nil)
         }
@@ -516,7 +519,7 @@ final class AppOrchestrator {
             guard !Task.isCancelled else { return }
             coordinator.cancel()
             isLiveTranslating = false
-            popup.updateState(.failed(error.localizedDescription), near: rect, on: screen)
+            popup.updateState(.failed(error.localizedDescription), near: regionWindow.captureRect, on: screen)
             popup.orderFrontRegardless()
             installClickOutsideMonitor(for: popup)
         }

@@ -134,7 +134,7 @@ private final class RegionControlView: NSView {
         self.corner = corner
         super.init(frame: .zero)
         if corner == nil {
-            let stop = NSButton(image: NSImage(systemSymbolName: "stop.fill", accessibilityDescription: L10n.stopLiveTranslation)!,
+            let stop = NSButton(image: NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: L10n.stopLiveTranslation)!,
                                 target: self, action: #selector(stopLive))
             stop.isBordered = false
             stop.contentTintColor = .white

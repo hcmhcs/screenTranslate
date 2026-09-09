@@ -43,6 +43,8 @@ final class TranslationPopupWindow: NSPanel {
     private var isShowingOriginal = false
 
     /// 자동 복사 여부 — 팝업에 전달
+    var followsSelection = false
+
     var autoCopied = false
 
     /// 사용자가 팝업을 드래그했는지 여부 — 원문 토글 시 위치 결정에 사용
@@ -134,6 +136,12 @@ final class TranslationPopupWindow: NSPanel {
             return
         }
 
+        if followsSelection {
+            let size = userDidResize ? frame.size : calculateSize(for: state, showingOriginal: isShowingOriginal)
+            positionFollowingSelection(near: selectionRect, on: screen, size: size)
+            return
+        }
+
         // 사용자가 리사이즈했으면 크기 변경 없이 뷰만 업데이트
         if userDidResize { return }
 
@@ -153,6 +161,18 @@ final class TranslationPopupWindow: NSPanel {
         }
 
         animateFrame(to: NSRect(origin: origin, size: newSize))
+    }
+
+    /// Live captions stay anchored to the latest capture region, even at unchanged size.
+    func positionFollowingSelection(near rect: CGRect, on screen: NSScreen?, size: NSSize? = nil) {
+        lastSelectionRect = rect
+        if let screen { lastScreen = screen }
+        userDidDrag = false
+        let popupSize = size ?? frame.size
+        let origin = calculateOrigin(near: rect, popupSize: popupSize, on: screen)
+        isUpdatingPosition = true
+        setFrame(NSRect(origin: origin, size: popupSize), display: true)
+        isUpdatingPosition = false
     }
 
     private func makePopupView(state: TranslationCoordinator.State) -> TranslationPopupView {
