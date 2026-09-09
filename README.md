@@ -154,3 +154,9 @@ Open Settings from the menu bar icon to:
 ## License
 
 This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
+
+### Live video subtitles
+
+Choose **Live Translate…** from the menu bar, then drag around the subtitle area of your video. The teal frame marks the watched area. Drag its Live toolbar to move it, drag a corner handle to resize it, or click the stop button to end live translation. ScreenTranslate checks it approximately every 250 ms (plus capture/OCR time) and translates changed text using your selected engine and languages. Translation latency depends on the engine; very brief captions may pass before a result is ready.
+
+The floating translation stays open while you interact with the video. Captions clear when the source text disappears or changes. Close the popup or choose **Stop Live Translation** in the menu to stop. Live captions are not automatically copied or added to history. This translates visible text, not audio; protected video that blocks screen capture cannot be read.

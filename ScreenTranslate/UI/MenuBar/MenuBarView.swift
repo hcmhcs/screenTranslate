@@ -8,6 +8,14 @@ struct MenuBarView: View {
         }
         .globalKeyboardShortcut(.translate)
 
+        Button(AppOrchestrator.shared.isLiveTranslating ? L10n.stopLiveTranslation : L10n.liveTranslate) {
+            if AppOrchestrator.shared.isLiveTranslating {
+                AppOrchestrator.shared.stopLiveTranslation()
+            } else {
+                AppOrchestrator.shared.startTranslation(live: true)
+            }
+        }
+
         Button(L10n.dragTranslate) {
             AppOrchestrator.shared.startDragTranslation()
         }
