@@ -7,12 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-29
+
+### Highlights
+
+- 🎬 Live Translate (beta): keeps translating subtitles burned into videos and games — turn it on in Settings → Advanced → Beta Features
+- 🙈 Hide the menu bar icon if you only use shortcuts — open ScreenTranslate again to bring up Settings
+
 ### Added
 
 - Option to hide the menu bar icon (Settings → General → App). Shortcuts keep working, and opening ScreenTranslate again brings up Settings. Thanks to @ianmeowmeow for the suggestion (#3)
 - Opening ScreenTranslate while it's already running now opens Settings — handy if macOS hides the icon from the menu bar
 - Settings now include Open History, About, and Quit, so everything in the menu bar menu is reachable without the icon
 - Live Translate (beta): keeps translating the text in an area you choose — handy for subtitles burned into videos or games. Turn it on in Settings → Advanced → Beta Features. Uses Apple Translation only; protected videos can't be captured. Thanks to @sickerin for the original idea and prototype (#4)
+
+### Changed
+
+- Settings now opens right below the menu bar icon on the display you're using. Previously it could open mid-screen with its bottom cut off
 
 ## [1.5.3] - 2026-09-07
 
