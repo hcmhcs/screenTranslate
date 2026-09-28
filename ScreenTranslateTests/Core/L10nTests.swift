@@ -137,7 +137,6 @@ final class L10nTests: XCTestCase {
             ("hideMenuBarIconMessage", L10n.hideMenuBarIconMessage),
             ("hideMenuBarIconConfirm", L10n.hideMenuBarIconConfirm),
             ("openHistory", L10n.openHistory),
-            ("quitApp", L10n.quitApp),
 
             // API Keys
             ("apiKeysSection", L10n.apiKeysSection),

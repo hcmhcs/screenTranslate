@@ -91,7 +91,6 @@ nonisolated enum L10n {
     static var hideMenuBarIconMessage: String { s("Your shortcuts keep working. To get back to Settings, open ScreenTranslate again from Finder or Spotlight.", ko: "번역 단축키는 계속 작동합니다. 설정으로 돌아오려면 Finder나 Spotlight에서 ScreenTranslate를 다시 여세요.") }
     static var hideMenuBarIconConfirm: String { s("Hide Icon", ko: "숨기기") }
     static var openHistory: String { s("Open History…", ko: "히스토리 열기…") }
-    static var quitApp: String { s("Quit ScreenTranslate", ko: "ScreenTranslate 종료") }
 
     /// names는 기능 이름을 ", "로 이은 문자열 — 한 개든 여러 개든 문장이 어색하지 않게 쓴다
     static func featuresWithoutShortcut(_ names: String) -> String {

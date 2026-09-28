@@ -357,7 +357,7 @@ struct SettingsView: View {
                         AppOrchestrator.shared.showAbout()
                     }
                     Spacer()
-                    Button(L10n.quitApp) {
+                    Button(L10n.quit) {
                         NSApplication.shared.terminate(nil)
                     }
                 }
