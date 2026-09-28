@@ -1,6 +1,7 @@
 import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
+import TelemetryDeck
 import Translation
 import UniformTypeIdentifiers
 
@@ -26,6 +27,10 @@ struct SettingsView: View {
 
     // API Key 입력 상태
     @State private var azureRegionInput = ""
+
+    /// @AppStorage로 직접 관찰 — 시스템이 아이콘을 빼서 값이 바뀌어도 토글이 따라온다
+    @AppStorage(AppSettings.showMenuBarIconKey) private var showMenuBarIcon = true
+    @State private var showHideIconConfirm = false
 
     var body: some View {
         TabView {
@@ -119,6 +124,16 @@ struct SettingsView: View {
             if let font = pendingCatalogFont {
                 Text(L10n.fontDownloadConfirmMessage(name: font.name, size: formatBytes(font.sizeBytes)))
             }
+        }
+        .alert(L10n.hideMenuBarIconTitle, isPresented: $showHideIconConfirm) {
+            Button(L10n.hideMenuBarIconConfirm) {
+                showMenuBarIcon = false
+                TelemetryDeck.signal("menuBarIconHidden")
+            }
+            .keyboardShortcut(.defaultAction)
+            Button(L10n.cancel, role: .cancel) {}
+        } message: {
+            Text(hideMenuBarIconMessage)
         }
         .overlay {
             if isDownloading {
@@ -306,10 +321,46 @@ struct SettingsView: View {
                         }
                     }
 
+                Toggle(isOn: menuBarIconBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.showMenuBarIcon)
+                        Text(showMenuBarIcon ? L10n.menuBarIconDesc : L10n.menuBarIconHiddenDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .help(L10n.showMenuBarIconHelp)
+
+                // macOS 26부터 시스템 설정에서 앱별로 메뉴바 아이콘을 끌 수 있다.
+                // 앱은 그 상태를 알 수 없으므로(메뉴바 항목 창을 제어 센터가 소유) 바로가기만 둔다.
+                if #available(macOS 26, *) {
+                    if showMenuBarIcon {
+                        Button(L10n.menuBarIconMissing) {
+                            openSystemMenuBarSettings()
+                        }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                    }
+                }
+
                 Button(L10n.checkForUpdates) {
                     AppOrchestrator.shared.checkForUpdates()
                 }
                 .disabled(!AppOrchestrator.shared.canCheckForUpdates)
+
+                // 메뉴바 메뉴에만 있던 항목 — 아이콘을 숨겨도 여기서 닿을 수 있어야 한다
+                HStack {
+                    Button(L10n.openHistory) {
+                        AppOrchestrator.shared.showHistory()
+                    }
+                    Button(L10n.aboutApp) {
+                        AppOrchestrator.shared.showAbout()
+                    }
+                    Spacer()
+                    Button(L10n.quit) {
+                        NSApplication.shared.terminate(nil)
+                    }
+                }
             }
         }
         .formStyle(.grouped)
@@ -582,6 +633,36 @@ struct SettingsView: View {
     }
 
     // MARK: - Helpers
+
+    /// 끌 때는 바로 숨기지 않고 확인창을 띄운다 — 되돌아오는 길을 알려줄 유일한 순간이다
+    private var menuBarIconBinding: Binding<Bool> {
+        Binding(
+            get: { showMenuBarIcon },
+            set: { isOn in
+                if isOn {
+                    showMenuBarIcon = true
+                } else {
+                    showHideIconConfirm = true
+                }
+            }
+        )
+    }
+
+    /// 단축키가 비어 있는 기능이 있으면 아이콘 없이는 실행할 수 없다고 덧붙인다
+    private var hideMenuBarIconMessage: String {
+        let missing = MenuBarIconPolicy.featuresWithoutShortcut(
+            hasScreenTranslateShortcut: KeyboardShortcuts.getShortcut(for: .translate) != nil,
+            hasDragTranslateShortcut: KeyboardShortcuts.getShortcut(for: .dragTranslate) != nil,
+            dragTranslateMode: settings.dragTranslateMode,
+            hasQuickTranslateShortcut: KeyboardShortcuts.getShortcut(for: .quickTranslate) != nil
+        )
+        return MenuBarIconPolicy.hideConfirmationMessage(featuresWithoutShortcut: missing)
+    }
+
+    private func openSystemMenuBarSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension") else { return }
+        NSWorkspace.shared.open(url)
+    }
 
     private func handleFontSelection(oldValue: String, newValue: String) {
         // 다운로드 중이면 무시 (Picker .id() 리빌드에 의한 재트리거 방지)

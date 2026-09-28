@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Option to hide the menu bar icon (Settings → General → App). Shortcuts keep working, and opening ScreenTranslate again brings up Settings (#3)
+- Opening ScreenTranslate while it's already running now opens Settings — handy if macOS hides the icon from the menu bar
+- Settings now include Open History, About, and Quit, so everything in the menu bar menu is reachable without the icon
+
 ## [1.5.3] - 2026-09-07
 
 ### Highlights

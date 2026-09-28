@@ -126,6 +126,17 @@ final class L10nTests: XCTestCase {
             ("downloading", L10n.downloading),
             ("downloadingHint", L10n.downloadingHint),
             ("later", L10n.later),
+            ("backgroundNoticeTitle", L10n.backgroundNoticeTitle),
+            ("backgroundNoticeBody", L10n.backgroundNoticeBody),
+            ("showMenuBarIcon", L10n.showMenuBarIcon),
+            ("showMenuBarIconHelp", L10n.showMenuBarIconHelp),
+            ("menuBarIconDesc", L10n.menuBarIconDesc),
+            ("menuBarIconHiddenDesc", L10n.menuBarIconHiddenDesc),
+            ("menuBarIconMissing", L10n.menuBarIconMissing),
+            ("hideMenuBarIconTitle", L10n.hideMenuBarIconTitle),
+            ("hideMenuBarIconMessage", L10n.hideMenuBarIconMessage),
+            ("hideMenuBarIconConfirm", L10n.hideMenuBarIconConfirm),
+            ("openHistory", L10n.openHistory),
 
             // API Keys
             ("apiKeysSection", L10n.apiKeysSection),
@@ -214,6 +225,7 @@ final class L10nTests: XCTestCase {
             ("ocrFailed", L10n.ocrFailed("test")),
             ("translationFailed", L10n.translationFailed("test")),
             ("engineHttpError", L10n.engineHttpError("DeepL", status: 500)),
+            ("featuresWithoutShortcut", L10n.featuresWithoutShortcut("Drag Translate")),
         ]
     }
 }
