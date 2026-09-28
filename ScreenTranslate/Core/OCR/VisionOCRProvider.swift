@@ -44,10 +44,14 @@ final class VisionOCRProvider: OCRProvider {
 }
 
 extension VisionOCRProvider {
-    /// 실시간 번역용 — 초당 여러 번 부르므로 빠른 인식을 쓴다.
-    /// 2026-09-29 자막 시뮬레이터 측정: 정확 모드 CPU 48%·반응 1.25초 → 빠른 모드 27%·0.73초, 자막 9/9 같은 번역
-    /// (정확 모드는 호출마다 Neural Engine 모델 준비 비용이 커서 반복 호출에 맞지 않는다)
-    static func liveTranslation() -> VisionOCRProvider {
-        VisionOCRProvider(recognitionLevel: .fast)
+    /// 실시간 번역용 인식기 — 초당 여러 번 부르므로 가능하면 빠른 모드를 쓴다.
+    /// 2026-09-29 자막 시뮬레이터 측정: 정확 모드 CPU 48%·반응 1.25초 → 빠른 모드 27%·0.73초 (영어 자막 9/9 같은 번역).
+    /// 단, 빠른 모드는 라틴 문자 몇 개 언어만 읽으므로 원문 언어가 그중 하나일 때만 쓴다 (LiveOCRPolicy).
+    static func liveTranslation(sourceCode: String) -> VisionOCRProvider {
+        var probe = RecognizeTextRequest()
+        probe.recognitionLevel = .fast
+        let fast = LiveOCRPolicy.usesFastRecognition(sourceCode: sourceCode,
+                                                     fastLanguages: probe.supportedRecognitionLanguages)
+        return VisionOCRProvider(recognitionLevel: fast ? .fast : .accurate)
     }
 }

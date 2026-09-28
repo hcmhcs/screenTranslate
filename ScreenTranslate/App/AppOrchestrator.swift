@@ -130,6 +130,7 @@ final class AppOrchestrator {
                 self?.toggleLiveTranslation()
             }
         }
+        updateLiveTranslateShortcut()
 
         // Sparkle canCheckForUpdates KVO → @Observable 브리지
         updateCancellable = updaterController.updater
@@ -621,7 +622,6 @@ final class AppOrchestrator {
     @ObservationIgnored private var liveStartedAt: Date?
     @ObservationIgnored private var liveObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
     @ObservationIgnored private let liveCapturer = RegionScreenCapturer()
-    @ObservationIgnored private let liveOCR = VisionOCRProvider.liveTranslation()
     @ObservationIgnored private let liveTranslator = AppleTranslationProvider()
 
     /// 메뉴·단축키 — 실행 중이면 멈추고, 아니면 점검 후 영역을 골라 시작한다
@@ -660,6 +660,16 @@ final class AppOrchestrator {
         liveSession?.stop(reason)  // → onStop → liveSessionDidStop
     }
 
+    /// 베타 설정에 맞춰 단축키를 켜고 끈다 — Carbon 핫키는 콜백이 무시해도 그 키 조합을 다른 앱에서 가로채므로
+    /// 베타를 끄면 등록 자체를 풀어야 한다 (드래그 번역 updateDragTranslateMode와 같은 방식)
+    func updateLiveTranslateShortcut() {
+        if AppSettings.shared.liveTranslateEnabled {
+            KeyboardShortcuts.enable(.liveTranslate)
+        } else {
+            KeyboardShortcuts.disable(.liveTranslate)
+        }
+    }
+
     private func missingLiveLanguagePacks() async -> [String] {
         let manager = LanguagePackManager()
         await manager.refreshAllStatuses()
@@ -679,9 +689,11 @@ final class AppOrchestrator {
         let session = LiveTranslationSession(
             dependencies: .init(
                 frameSource: liveCapturer,
-                ocr: liveOCR,
+                // 원문 언어에 따라 인식 수준이 달라지므로 세션마다 만든다
+                ocr: VisionOCRProvider.liveTranslation(sourceCode: AppSettings.shared.sourceLanguageCode),
                 translator: liveTranslator,
-                isTranslatorBusy: { TranslationBridge.shared.isTranslating }
+                isTranslatorBusy: { TranslationBridge.shared.isTranslating },
+                checkReadiness: { text, target in await LiveTranslatePreflight.readiness(for: text, to: target) }
             ),
             region: { [weak regionWindow] in
                 regionWindow.map { LiveRegion(rect: $0.region, displayID: displayID, scale: scale) }

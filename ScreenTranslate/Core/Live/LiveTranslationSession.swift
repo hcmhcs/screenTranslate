@@ -13,6 +13,9 @@ final class LiveTranslationSession {
         var translator: TranslationProvider
         /// Apple 번역 브리지가 요청을 처리 중인지 — 자기 요청이 없는데 true면 다른 기능이 쓰는 중이다
         var isTranslatorBusy: () -> Bool
+        /// 원문이 자동 감지일 때 자막 언어가 목표 언어로 바로 번역되는지 — 언어팩이 없으면 보이지 않는 창에
+        /// 다운로드 창이 걸려 요청이 조용히 멈추므로 보내기 전에 확인한다 (운영: LanguageAvailability)
+        var checkReadiness: (String, Locale.Language) async -> Readiness = { _, _ in .ready }
         var sleep: (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
         var interval: Duration = .milliseconds(333)
     }
@@ -21,6 +24,19 @@ final class LiveTranslationSession {
         case hidden
         case subtitle(String)
         case message(String)
+    }
+
+    enum Readiness: Equatable, Sendable {
+        case ready
+        case needsDownload
+        case unsupported
+    }
+
+    /// 언어팩이 없어 번역을 보내지 않은 경우의 안내
+    nonisolated enum ReadinessError: LocalizedError {
+        case needsDownload
+
+        var errorDescription: String? { L10n.liveSourcePackMissing }
     }
 
     enum StopReason: Equatable {
@@ -157,8 +173,17 @@ final class LiveTranslationSession {
         translationToken = token
         let (source, target) = languages()
         let translator = dependencies.translator
+        let checkReadiness = dependencies.checkReadiness
         translationTask = Task { [weak self] in
             do {
+                // 원문을 지정했으면 시작할 때 언어팩을 이미 확인했다
+                if source == nil {
+                    switch await checkReadiness(text, target) {
+                    case .ready: break
+                    case .needsDownload: throw ReadinessError.needsDownload
+                    case .unsupported: throw TranslationError.languageNotSupported
+                    }
+                }
                 let translated = try await translator.translate(text: text, from: source, to: target)
                 self?.finishTranslation(token, text: text, result: .success(translated))
             } catch {

@@ -14,6 +14,9 @@ import Testing
         let ocr: ScriptedOCRProvider
         let translator: TranslationProvider
         var busy = false
+        var sourceLanguage: Locale.Language?
+        var readiness: LiveTranslationSession.Readiness = .ready
+        private(set) var readinessChecks = 0
         var region = LiveRegion(rect: CGRect(x: 0, y: 0, width: 96, height: 24), displayID: 1, scale: 1)
         private(set) var stopReasons: [LiveTranslationSession.StopReason] = []
         private(set) var session: LiveTranslationSession!
@@ -28,10 +31,14 @@ import Testing
                     ocr: ocr,
                     translator: self.translator,
                     isTranslatorBusy: { [unowned self] in self.busy },
+                    checkReadiness: { [unowned self] _, _ in
+                        self.readinessChecks += 1
+                        return self.readiness
+                    },
                     sleep: { _ in }
                 ),
                 region: { [unowned self] in self.region },
-                languages: { (nil, Locale.Language(identifier: "ko")) },
+                languages: { [unowned self] in (self.sourceLanguage, Locale.Language(identifier: "ko")) },
                 preprocess: { false }
             )
             session.onStop = { [unowned self] in self.stopReasons.append($0) }
@@ -205,6 +212,33 @@ import Testing
         #expect(h.stopReasons == [.user])
         #expect(!h.session.isRunning)
         #expect(h.session.display == .hidden)
+    }
+
+    @Test("with auto-detect, a subtitle whose language pack is missing shows a download hint instead of translating")
+    func autoSourceMissingPack() async {
+        let h = Harness(ocr: ["Hello"])
+        h.readiness = .needsDownload
+        h.session.start()
+        await h.feed(TestImages.block(at: 0))
+        await h.feed(TestImages.block(at: 30))
+        await h.settle { h.session.display == .message(L10n.liveSourcePackMissing) }
+        #expect(h.session.display == .message(L10n.liveSourcePackMissing))
+        #expect(h.recorder.requests.isEmpty)
+        h.session.stop(.user)
+    }
+
+    @Test("with an explicit source language the readiness check is skipped — the pack was checked at start")
+    func explicitSourceSkipsReadiness() async {
+        let h = Harness(ocr: ["Hello"])
+        h.sourceLanguage = Locale.Language(identifier: "en")
+        h.readiness = .needsDownload
+        h.session.start()
+        await h.feed(TestImages.block(at: 0))
+        await h.feed(TestImages.block(at: 30))
+        await h.settle { h.recorder.requests == ["Hello"] }
+        #expect(h.recorder.requests == ["Hello"])
+        #expect(h.readinessChecks == 0)
+        h.session.stop(.user)
     }
 
     @Test("each tick captures the region where it is now")

@@ -638,6 +638,7 @@ struct SettingsView: View {
                     }
                 }
                 .onChange(of: settings.liveTranslateEnabled) { _, isOn in
+                    AppOrchestrator.shared.updateLiveTranslateShortcut()
                     if !isOn { AppOrchestrator.shared.stopLiveTranslation(.betaDisabled) }
                 }
 

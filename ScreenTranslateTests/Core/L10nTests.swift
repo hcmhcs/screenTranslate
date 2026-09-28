@@ -129,6 +129,7 @@ final class L10nTests: XCTestCase {
             ("backgroundNoticeTitle", L10n.backgroundNoticeTitle),
             ("backgroundNoticeBody", L10n.backgroundNoticeBody),
             ("liveWaitingForText", L10n.liveWaitingForText),
+            ("liveSourcePackMissing", L10n.liveSourcePackMissing),
             ("liveToolbarLabel", L10n.liveToolbarLabel),
             ("liveResizeHelp", L10n.liveResizeHelp),
             ("stopLiveTranslation", L10n.stopLiveTranslation),
