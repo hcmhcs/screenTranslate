@@ -126,6 +126,8 @@ final class L10nTests: XCTestCase {
             ("downloading", L10n.downloading),
             ("downloadingHint", L10n.downloadingHint),
             ("later", L10n.later),
+            ("backgroundNoticeTitle", L10n.backgroundNoticeTitle),
+            ("backgroundNoticeBody", L10n.backgroundNoticeBody),
 
             // API Keys
             ("apiKeysSection", L10n.apiKeysSection),

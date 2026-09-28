@@ -80,6 +80,8 @@ nonisolated enum L10n {
     static var downloading: String { s("Downloading...", ko: "다운로드 중...") }
     static var downloadingHint: String { s("If a system popup appears, tap Download.\nIt may look frozen, but the download is in progress.\nThis can take a few minutes depending on your network.", ko: "시스템 팝업이 나타나면 다운로드를 눌러주세요.\n화면이 멈춘 것처럼 보일 수 있지만 정상적으로 진행 중입니다.\n네트워크 환경에 따라 몇 분 정도 걸릴 수 있습니다.") }
     static var later: String { s("Later", ko: "나중에") }
+    static var backgroundNoticeTitle: String { s("ScreenTranslate is running", ko: "ScreenTranslate 실행 중") }
+    static var backgroundNoticeBody: String { s("The menu bar icon is hidden. Use your shortcuts to translate.", ko: "메뉴바 아이콘이 숨겨져 있습니다. 단축키로 번역하세요.") }
 
     // MARK: - API Keys
 

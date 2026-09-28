@@ -606,11 +606,37 @@ final class AppOrchestrator {
 
     // MARK: - 앱 다시 열기 (이슈 #3)
 
+    private var backgroundNotice: BackgroundNoticePanel?
+
     /// 실행 중인 앱을 다시 열었을 때 — 온보딩 중이면 그 창을, 아니면 설정 창을 앞으로 가져온다.
     /// 아이콘이 숨겨져 있으면(앱 설정이든 macOS 메뉴 막대 설정이든) 설정으로 돌아오는 유일한 길이다.
     func handleReopen() {
+        dismissBackgroundNotice()
         if focusExistingWindow(.onboarding) { return }
         showSettings()
+    }
+
+    /// 아이콘이 숨겨진 채로 새로 켜졌으면 "실행 중" 안내를 띄운다.
+    func showBackgroundNoticeIfNeeded(launchKind: LaunchKind) {
+        guard MenuBarIconPolicy.shouldShowBackgroundNotice(
+            isMenuBarIconVisible: AppSettings.shared.showMenuBarIcon,
+            launchKind: launchKind
+        ) else { return }
+
+        let notice = BackgroundNoticePanel { [weak self] in
+            self?.handleReopen()
+        }
+        notice.onDidClose = { [weak self, weak notice] in
+            guard let self, self.backgroundNotice === notice else { return }
+            self.backgroundNotice = nil
+        }
+        backgroundNotice = notice
+        notice.present(on: NSScreen.main)
+    }
+
+    private func dismissBackgroundNotice() {
+        backgroundNotice?.close()
+        backgroundNotice = nil
     }
 
     // MARK: - 설정 윈도우

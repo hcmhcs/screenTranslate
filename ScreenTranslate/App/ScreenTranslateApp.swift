@@ -1,6 +1,9 @@
 import SwiftUI
 import KeyboardShortcuts
 import TelemetryDeck
+import os
+
+private let logger = Logger(subsystem: "com.app.screentranslate", category: "lifecycle")
 
 extension KeyboardShortcuts.Name {
     static let translate = Self("translate", default: .init(.e, modifiers: [.command]))
@@ -33,6 +36,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var bridgeWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 실행 Apple 이벤트는 이 콜백 안에서만 읽힌다 — 다른 작업보다 먼저 읽어 둔다
+        let launchKind = MenuBarIconPolicy.launchKind(from: NSAppleEventManager.shared().currentAppleEvent)
+        // 로그인 실행 판정이 실제로 되는지 확인하기 위한 기록 (사전 확인에서 실측하지 못한 부분).
+        // info는 디스크에 남지 않아 로그인 뒤 log show로 볼 수 없으므로 notice로 남긴다
+        logger.notice("launch kind=\(String(describing: launchKind), privacy: .public) menuBarIconVisible=\(AppSettings.shared.showMenuBarIcon, privacy: .public)")
+
         // TelemetryDeck 초기화
         let config = TelemetryDeck.Config(appID: "D40DAE14-17FE-4D5E-86B9-294CA7E45B7F")
         TelemetryDeck.initialize(config: config)
@@ -61,6 +70,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 첫 실행 온보딩 표시
         AppOrchestrator.shared.showOnboardingIfNeeded()
+        // 아이콘이 숨겨진 채 직접 켰으면 실행 중임을 알린다
+        AppOrchestrator.shared.showBackgroundNoticeIfNeeded(launchKind: launchKind)
     }
 
     /// Finder·Spotlight·Raycast 등에서 이미 실행 중인 앱을 다시 열면 호출된다.
