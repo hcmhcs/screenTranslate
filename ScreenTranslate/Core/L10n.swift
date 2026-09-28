@@ -82,6 +82,22 @@ nonisolated enum L10n {
     static var later: String { s("Later", ko: "나중에") }
     static var backgroundNoticeTitle: String { s("ScreenTranslate is running", ko: "ScreenTranslate 실행 중") }
     static var backgroundNoticeBody: String { s("The menu bar icon is hidden. Use your shortcuts to translate.", ko: "메뉴바 아이콘이 숨겨져 있습니다. 단축키로 번역하세요.") }
+    static var showMenuBarIcon: String { s("Show Menu Bar Icon", ko: "메뉴바 아이콘 표시") }
+    static var showMenuBarIconHelp: String { s("Show or hide the ScreenTranslate icon in the menu bar", ko: "메뉴바의 ScreenTranslate 아이콘을 표시하거나 숨깁니다") }
+    static var menuBarIconDesc: String { s("Shortcuts keep working when the icon is hidden.", ko: "아이콘을 숨겨도 단축키는 계속 작동합니다.") }
+    static var menuBarIconHiddenDesc: String { s("Hidden. Open ScreenTranslate again to come back here.", ko: "숨김 상태 · ScreenTranslate를 다시 열면 이 창이 열립니다.") }
+    static var menuBarIconMissing: String { s("Icon not showing? Open Menu Bar Settings…", ko: "아이콘이 안 보이나요? 메뉴 막대 설정 열기…") }
+    static var hideMenuBarIconTitle: String { s("Hide the menu bar icon?", ko: "메뉴바 아이콘을 숨길까요?") }
+    static var hideMenuBarIconMessage: String { s("Your shortcuts keep working. To get back to Settings, open ScreenTranslate again from Finder or Spotlight.", ko: "번역 단축키는 계속 작동합니다. 설정으로 돌아오려면 Finder나 Spotlight에서 ScreenTranslate를 다시 여세요.") }
+    static var hideMenuBarIconConfirm: String { s("Hide Icon", ko: "숨기기") }
+    static var openHistory: String { s("Open History…", ko: "히스토리 열기…") }
+    static var quitApp: String { s("Quit ScreenTranslate", ko: "ScreenTranslate 종료") }
+
+    /// names는 기능 이름을 ", "로 이은 문자열 — 한 개든 여러 개든 문장이 어색하지 않게 쓴다
+    static func featuresWithoutShortcut(_ names: String) -> String {
+        s("Without a shortcut, \(names) can't be started once the icon is hidden.",
+          ko: "\(names)에는 단축키가 없어 아이콘 없이는 실행할 수 없습니다.")
+    }
 
     // MARK: - API Keys
 

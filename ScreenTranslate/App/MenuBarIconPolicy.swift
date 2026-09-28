@@ -59,4 +59,11 @@ nonisolated enum MenuBarIconPolicy {
         if !hasQuickTranslateShortcut { features.append(.quickTranslate) }
         return features
     }
+
+    /// 숨기기 확인창 본문 — 단축키가 없는 기능이 있으면 이름을 덧붙여 경고한다.
+    static func hideConfirmationMessage(featuresWithoutShortcut features: [Feature]) -> String {
+        guard !features.isEmpty else { return L10n.hideMenuBarIconMessage }
+        let names = features.map(\.title).joined(separator: ", ")
+        return L10n.hideMenuBarIconMessage + "\n\n" + L10n.featuresWithoutShortcut(names)
+    }
 }

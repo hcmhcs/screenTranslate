@@ -77,4 +77,23 @@ import Testing
             hasScreenTranslateShortcut: true, hasDragTranslateShortcut: false,
             dragTranslateMode: "doubleCopy", hasQuickTranslateShortcut: true).isEmpty)
     }
+
+    // MARK: - 숨기기 확인창 문구
+
+    @Test("confirmation message is the plain notice when every feature has a shortcut")
+    func confirmationWithoutWarning() {
+        #expect(MenuBarIconPolicy.hideConfirmationMessage(featuresWithoutShortcut: [])
+            == L10n.hideMenuBarIconMessage)
+    }
+
+    @Test("confirmation message names every feature that would become unreachable")
+    func confirmationNamesUnreachableFeatures() {
+        let message = MenuBarIconPolicy.hideConfirmationMessage(
+            featuresWithoutShortcut: [.dragTranslate, .quickTranslate])
+
+        #expect(message.hasPrefix(L10n.hideMenuBarIconMessage))
+        #expect(message.contains(MenuBarIconPolicy.Feature.dragTranslate.title))
+        #expect(message.contains(MenuBarIconPolicy.Feature.quickTranslate.title))
+        #expect(!message.contains(MenuBarIconPolicy.Feature.screenTranslate.title))
+    }
 }
