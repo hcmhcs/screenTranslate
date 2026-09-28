@@ -604,6 +604,11 @@ final class AppOrchestrator {
         presentAndStore(window, as: .onboarding)
     }
 
+    // MARK: - 실시간 번역 (베타, PR #4)
+
+    /// Task 8에서 세션 연결로 채운다 — 설정의 베타 토글이 먼저 호출하므로 자리만 둔다
+    func stopLiveTranslation(_ reason: LiveTranslationSession.StopReason) {}
+
     // MARK: - 앱 다시 열기 (이슈 #3)
 
     private var backgroundNotice: BackgroundNoticePanel?

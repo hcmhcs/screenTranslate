@@ -35,12 +35,14 @@ nonisolated enum MenuBarIconPolicy {
         case screenTranslate
         case dragTranslate
         case quickTranslate
+        case liveTranslate
 
         var title: String {
             switch self {
             case .screenTranslate: L10n.translate
             case .dragTranslate: L10n.dragTranslate
             case .quickTranslate: L10n.quickTranslate
+            case .liveTranslate: L10n.liveTranslateFeature
             }
         }
     }
@@ -51,12 +53,15 @@ nonisolated enum MenuBarIconPolicy {
         hasScreenTranslateShortcut: Bool,
         hasDragTranslateShortcut: Bool,
         dragTranslateMode: String,
-        hasQuickTranslateShortcut: Bool
+        hasQuickTranslateShortcut: Bool,
+        liveTranslateEnabled: Bool = false,
+        hasLiveTranslateShortcut: Bool = true
     ) -> [Feature] {
         var features: [Feature] = []
         if !hasScreenTranslateShortcut { features.append(.screenTranslate) }
         if dragTranslateMode == "custom", !hasDragTranslateShortcut { features.append(.dragTranslate) }
         if !hasQuickTranslateShortcut { features.append(.quickTranslate) }
+        if liveTranslateEnabled, !hasLiveTranslateShortcut { features.append(.liveTranslate) }
         return features
     }
 

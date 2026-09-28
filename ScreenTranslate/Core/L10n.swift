@@ -84,6 +84,11 @@ nonisolated enum L10n {
     static var liveToolbarLabel: String { s("LIVE · Drag to move", ko: "LIVE · 드래그해서 이동") }
     static var liveResizeHelp: String { s("Drag to resize", ko: "드래그해서 크기 조절") }
     static var stopLiveTranslation: String { s("Stop Live Translate", ko: "실시간 번역 중지") }
+    static var liveTranslateMenu: String { s("Live Translate (Beta)", ko: "실시간 번역 (베타)") }
+    static var liveTranslateFeature: String { s("Live Translate", ko: "실시간 번역") }
+    static var betaSection: String { s("Beta Features", ko: "베타 기능") }
+    static var liveTranslateDesc: String { s("Keeps translating the text in an area you choose, like subtitles in a video. Uses Apple Translation only. Protected videos (such as Netflix) can't be captured. Uses more battery while running.", ko: "영상 자막처럼 고른 영역의 글자를 계속 번역합니다. Apple 번역만 쓰며, 넷플릭스 같은 보호된 영상은 캡처되지 않습니다. 켜 두는 동안 배터리를 더 씁니다.") }
+    static var liveTranslateShortcut: String { s("Live Translate Shortcut", ko: "실시간 번역 단축키") }
     static var backgroundNoticeTitle: String { s("ScreenTranslate is running", ko: "ScreenTranslate 실행 중") }
     static var backgroundNoticeBody: String { s("The menu bar icon is hidden. Use your shortcuts to translate, and open ScreenTranslate again to show Settings.", ko: "메뉴바 아이콘이 숨겨져 있습니다. 단축키로 번역하고, 설정은 ScreenTranslate를 다시 열면 나타납니다.") }
     static var showMenuBarIcon: String { s("Show Menu Bar Icon", ko: "메뉴바 아이콘 표시") }

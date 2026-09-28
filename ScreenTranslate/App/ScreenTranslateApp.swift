@@ -9,6 +9,8 @@ extension KeyboardShortcuts.Name {
     static let translate = Self("translate", default: .init(.e, modifiers: [.command]))
     static let dragTranslate = Self("dragTranslate", default: .init(.z, modifiers: [.command, .option]))
     static let quickTranslate = Self("quickTranslate", default: .init(.e, modifiers: [.command, .shift]))
+    /// 실시간 번역(베타) — 기본값 없음: 다른 앱 단축키와의 충돌을 피하고, 베타를 켠 사람만 직접 정한다
+    static let liveTranslate = Self("liveTranslate")
 }
 
 @main
