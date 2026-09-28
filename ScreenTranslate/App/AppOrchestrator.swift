@@ -631,7 +631,8 @@ final class AppOrchestrator {
             self.backgroundNotice = nil
         }
         backgroundNotice = notice
-        notice.present(on: NSScreen.main)
+        // 실행 직후엔 키 창이 없어 NSScreen.main이 사용자가 보는 화면이 아닐 수 있다 — 방금 앱을 연 화면(마우스 위치)에 띄운다
+        notice.present(on: NSScreen.underMouse)
     }
 
     private func dismissBackgroundNotice() {

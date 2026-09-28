@@ -67,6 +67,10 @@ final class BackgroundNoticePanel: NSPanel {
         super.close()
         onDidClose?()
     }
+
+    /// 테두리 없는 패널은 기본적으로 키 창이 될 수 없다 — 번역 팝업과 같이 허용하되
+    /// becomesKeyOnlyIfNeeded라 버튼 클릭만으로는 키 창이 되지 않아 포커스를 빼앗지 않는다.
+    override var canBecomeKey: Bool { true }
 }
 
 private struct BackgroundNoticeView: View {
@@ -84,7 +88,10 @@ private struct BackgroundNoticeView: View {
                 Text(L10n.backgroundNoticeBody)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            // 본문이 길어도 한 줄로 늘어나지 않고 줄바꿈되도록 폭을 고정한다
+            .frame(width: 260, alignment: .leading)
             Button(L10n.openSettings, action: onOpenSettings)
                 .controlSize(.small)
         }

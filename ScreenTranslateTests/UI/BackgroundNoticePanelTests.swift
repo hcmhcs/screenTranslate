@@ -44,4 +44,12 @@ import Testing
         #expect(panel.styleMask.contains(.nonactivatingPanel))
         #expect(panel.becomesKeyOnlyIfNeeded)
     }
+
+    /// 테두리 없는 패널은 기본적으로 키 창이 될 수 없어 becomesKeyOnlyIfNeeded가 의미가 없고,
+    /// [설정 열기] 버튼이 첫 클릭을 놓칠 수 있다. 번역 팝업(TranslationPopupWindow)과 같은 설정으로 맞춘다.
+    @Test("can take key status when a control needs it, like the translation popup")
+    func canBecomeKeyForControls() {
+        let panel = BackgroundNoticePanel(onOpenSettings: {})
+        #expect(panel.canBecomeKey)
+    }
 }
