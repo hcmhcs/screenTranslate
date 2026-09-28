@@ -18,6 +18,13 @@ struct MenuBarView: View {
         }
         .globalKeyboardShortcut(.quickTranslate)
 
+        if AppSettings.shared.liveTranslateEnabled {
+            Button(AppOrchestrator.shared.isLiveTranslating ? L10n.stopLiveTranslation : L10n.liveTranslateMenu) {
+                AppOrchestrator.shared.toggleLiveTranslation()
+            }
+            .globalKeyboardShortcut(.liveTranslate)
+        }
+
         Divider()
 
         // 최근 번역 서브메뉴

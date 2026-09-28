@@ -81,6 +81,47 @@ extension SerializedDefaultsSuite {
         #expect(AppSettings.shared.sourceLanguageCode == "auto")
     }
 
+    @Test("default showMenuBarIcon is true")
+    func defaultShowMenuBarIcon() {
+        let key = AppSettings.showMenuBarIconKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+
+        UserDefaults.standard.removeObject(forKey: key)
+        #expect(AppSettings.shared.showMenuBarIcon == true)
+    }
+
+    @Test("showMenuBarIcon reads what @AppStorage writes under the same key")
+    func showMenuBarIconSharesKeyWithAppStorage() {
+        let key = AppSettings.showMenuBarIconKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+
+        // 키 문자열이 바뀌면 이미 아이콘을 숨긴 사용자의 설정이 사라진다
+        #expect(key == "com.screentranslate.showMenuBarIcon")
+        UserDefaults.standard.set(false, forKey: key)  // @AppStorage가 쓰는 경로와 같다
+        #expect(AppSettings.shared.showMenuBarIcon == false)
+    }
+
+    @Test("live translate is off by default")
+    func defaultLiveTranslateEnabled() {
+        let key = "com.screentranslate.liveTranslateEnabled"
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+
+        UserDefaults.standard.removeObject(forKey: key)
+        #expect(AppSettings.shared.liveTranslateEnabled == false)
+    }
+
     // MARK: - Computed Properties
 
     @Test("sourceLanguage returns nil when code is auto")

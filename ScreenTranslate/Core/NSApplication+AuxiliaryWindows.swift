@@ -20,4 +20,9 @@ extension NSScreen {
         let mouse = NSEvent.mouseLocation
         return screens.first(where: { $0.frame.contains(mouse) }) ?? main
     }
+
+    /// CoreGraphics 디스플레이 ID — ScreenCaptureKit의 SCDisplay와 짝을 맞출 때 쓴다
+    var displayID: CGDirectDisplayID? {
+        deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
 }

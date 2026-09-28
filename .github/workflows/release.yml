@@ -356,13 +356,18 @@ jobs:
           desc "Instant screen translation for macOS - capture or select text to translate"
           homepage "https://screentranslate.filient.ai"
 
-          depends_on macos: ">= :sequoia"
+          auto_updates true
+          depends_on macos: :sequoia
 
           app "ScreenTranslate.app"
 
+          uninstall quit: "com.changmin.ScreenTranslate"
+
           zap trash: [
-            "~/Library/Preferences/com.filient.ScreenTranslate.plist",
-            "~/Library/Application Support/com.filient.ScreenTranslate",
+            "~/Library/Application Support/ScreenTranslate",
+            "~/Library/Caches/com.changmin.ScreenTranslate",
+            "~/Library/Preferences/com.changmin.ScreenTranslate.plist",
+            "~/Library/Saved Application State/com.changmin.ScreenTranslate.savedState",
           ]
         end
         CASKEOF

@@ -80,6 +80,33 @@ nonisolated enum L10n {
     static var downloading: String { s("Downloading...", ko: "다운로드 중...") }
     static var downloadingHint: String { s("If a system popup appears, tap Download.\nIt may look frozen, but the download is in progress.\nThis can take a few minutes depending on your network.", ko: "시스템 팝업이 나타나면 다운로드를 눌러주세요.\n화면이 멈춘 것처럼 보일 수 있지만 정상적으로 진행 중입니다.\n네트워크 환경에 따라 몇 분 정도 걸릴 수 있습니다.") }
     static var later: String { s("Later", ko: "나중에") }
+    static var liveWaitingForText: String { s("Waiting for text…", ko: "자막을 기다리는 중…") }
+    static var liveSourcePackMissing: String { s("This subtitle's language isn't downloaded yet. Download it in Settings → General to translate it live.", ko: "이 자막 언어의 언어팩이 아직 없습니다. 설정 → 일반에서 받으면 실시간으로 번역됩니다.") }
+    static var liveToolbarLabel: String { s("LIVE · Drag to move", ko: "LIVE · 드래그해서 이동") }
+    static var liveResizeHelp: String { s("Drag to resize", ko: "드래그해서 크기 조절") }
+    static var stopLiveTranslation: String { s("Stop Live Translate", ko: "실시간 번역 중지") }
+    static var liveTranslateMenu: String { s("Live Translate (Beta)", ko: "실시간 번역 (베타)") }
+    static var liveTranslateFeature: String { s("Live Translate", ko: "실시간 번역") }
+    static var betaSection: String { s("Beta Features", ko: "베타 기능") }
+    static var liveTranslateDesc: String { s("Keeps translating the text in an area you choose, like subtitles in a video. Uses Apple Translation only. Protected videos (such as Netflix) can't be captured. Uses more battery while running.", ko: "영상 자막처럼 고른 영역의 글자를 계속 번역합니다. Apple 번역만 쓰며, 넷플릭스 같은 보호된 영상은 캡처되지 않습니다. 켜 두는 동안 배터리를 더 씁니다.") }
+    static var liveTranslateShortcut: String { s("Live Translate Shortcut", ko: "실시간 번역 단축키") }
+    static var backgroundNoticeTitle: String { s("ScreenTranslate is running", ko: "ScreenTranslate 실행 중") }
+    static var backgroundNoticeBody: String { s("The menu bar icon is hidden. Use your shortcuts to translate, and open ScreenTranslate again to show Settings.", ko: "메뉴바 아이콘이 숨겨져 있습니다. 단축키로 번역하고, 설정은 ScreenTranslate를 다시 열면 나타납니다.") }
+    static var showMenuBarIcon: String { s("Show Menu Bar Icon", ko: "메뉴바 아이콘 표시") }
+    static var showMenuBarIconHelp: String { s("Show or hide the ScreenTranslate icon in the menu bar", ko: "메뉴바의 ScreenTranslate 아이콘을 표시하거나 숨깁니다") }
+    static var menuBarIconDesc: String { s("Shortcuts keep working when the icon is hidden.", ko: "아이콘을 숨겨도 단축키는 계속 작동합니다.") }
+    static var menuBarIconHiddenDesc: String { s("Hidden. Open ScreenTranslate again to come back here.", ko: "숨김 상태 · ScreenTranslate를 다시 열면 이 창이 열립니다.") }
+    static var menuBarIconMissing: String { s("Icon not showing? Open Menu Bar Settings…", ko: "아이콘이 안 보이나요? 메뉴 막대 설정 열기…") }
+    static var hideMenuBarIconTitle: String { s("Hide the menu bar icon?", ko: "메뉴바 아이콘을 숨길까요?") }
+    static var hideMenuBarIconMessage: String { s("Your shortcuts keep working. To get back to Settings, open ScreenTranslate again from Finder or Spotlight.", ko: "번역 단축키는 계속 작동합니다. 설정으로 돌아오려면 Finder나 Spotlight에서 ScreenTranslate를 다시 여세요.") }
+    static var hideMenuBarIconConfirm: String { s("Hide Icon", ko: "숨기기") }
+    static var openHistory: String { s("Open History…", ko: "히스토리 열기…") }
+
+    /// names는 기능 이름을 ", "로 이은 문자열 — 한 개든 여러 개든 문장이 어색하지 않게 쓴다
+    static func featuresWithoutShortcut(_ names: String) -> String {
+        s("Without a shortcut, \(names) can't be started once the icon is hidden.",
+          ko: "\(names)에는 단축키가 없어 아이콘 없이는 실행할 수 없습니다.")
+    }
 
     // MARK: - API Keys
 
@@ -323,6 +350,15 @@ nonisolated enum L10n {
     static var betaFeature: String { s("Beta", ko: "베타") }
 
     // MARK: - Errors
+
+    static func liveLanguagePackMissing(_ names: String) -> String {
+        s("Live Translate uses Apple Translation. Download the \(names) language pack in Settings first.",
+          ko: "실시간 번역은 Apple 번역을 씁니다. 설정에서 \(names) 언어팩을 먼저 받아 주세요.")
+    }
+
+    static func liveTranslateStopped(_ reason: String) -> String {
+        s("Live Translate stopped: \(reason)", ko: "실시간 번역이 멈췄습니다: \(reason)")
+    }
 
     static var noTextFound: String { s("No text found in the selected area.", ko: "선택한 영역에서 텍스트를 찾을 수 없습니다.") }
     static var unsupportedLanguagePair: String { s("This language pair is not supported.", ko: "이 언어 조합은 지원되지 않습니다.") }

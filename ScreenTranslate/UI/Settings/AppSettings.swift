@@ -218,6 +218,25 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Menu Bar Icon
+
+    /// 메뉴바 아이콘 표시 여부 키 (이슈 #3).
+    /// MenuBarExtra(isInserted:)와 설정 토글은 @AppStorage로 이 키를 직접 관찰한다 —
+    /// 시스템이 아이콘을 빼면서 바인딩을 바꾸는 경우에도 양쪽이 함께 따라가도록.
+    nonisolated static let showMenuBarIconKey = "com.screentranslate.showMenuBarIcon"
+
+    var showMenuBarIcon: Bool {
+        get {
+            access(keyPath: \.showMenuBarIcon)
+            return UserDefaults.standard.object(forKey: Self.showMenuBarIconKey) as? Bool ?? true
+        }
+        set {
+            withMutation(keyPath: \.showMenuBarIcon) {
+                UserDefaults.standard.set(newValue, forKey: Self.showMenuBarIconKey)
+            }
+        }
+    }
+
     // MARK: - Onboarding
 
     var hasCompletedOnboarding: Bool {
@@ -242,6 +261,21 @@ final class AppSettings {
         set {
             withMutation(keyPath: \.dragTranslateMode) {
                 UserDefaults.standard.set(newValue, forKey: "com.screentranslate.dragTranslateMode")
+            }
+        }
+    }
+
+    // MARK: - Live Translate (Beta)
+
+    /// 실시간 자막 번역 베타 — 꺼져 있으면 메뉴 항목이 숨고 단축키도 무시된다
+    var liveTranslateEnabled: Bool {
+        get {
+            access(keyPath: \.liveTranslateEnabled)
+            return UserDefaults.standard.bool(forKey: "com.screentranslate.liveTranslateEnabled")
+        }
+        set {
+            withMutation(keyPath: \.liveTranslateEnabled) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.liveTranslateEnabled")
             }
         }
     }

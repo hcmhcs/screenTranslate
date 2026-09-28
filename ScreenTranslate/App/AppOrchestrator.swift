@@ -123,6 +123,15 @@ final class AppOrchestrator {
             }
         }
 
+        // 실시간 번역(베타): 핸들러는 한 번만 등록하고 베타 여부는 콜백에서 확인한다
+        KeyboardShortcuts.onKeyUp(for: .liveTranslate) { [weak self] in
+            Task { @MainActor in
+                guard AppSettings.shared.liveTranslateEnabled else { return }
+                self?.toggleLiveTranslation()
+            }
+        }
+        updateLiveTranslateShortcut()
+
         // Sparkle canCheckForUpdates KVO → @Observable 브리지
         updateCancellable = updaterController.updater
             .publisher(for: \.canCheckForUpdates)
@@ -604,6 +613,232 @@ final class AppOrchestrator {
         presentAndStore(window, as: .onboarding)
     }
 
+    // MARK: - 실시간 번역 (베타, PR #4)
+
+    private(set) var isLiveTranslating = false
+    @ObservationIgnored private var liveSession: LiveTranslationSession?
+    @ObservationIgnored private var liveRegionWindow: LiveRegionWindow?
+    @ObservationIgnored private var liveSubtitleBar: LiveSubtitleBar?
+    @ObservationIgnored private var liveStartedAt: Date?
+    @ObservationIgnored private var liveObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
+    @ObservationIgnored private let liveCapturer = RegionScreenCapturer()
+    @ObservationIgnored private let liveTranslator = AppleTranslationProvider()
+
+    /// 메뉴·단축키 — 실행 중이면 멈추고, 아니면 점검 후 영역을 골라 시작한다
+    func toggleLiveTranslation() {
+        if isLiveTranslating {
+            stopLiveTranslation(.user)
+            return
+        }
+        guard AppSettings.shared.liveTranslateEnabled, !isSelectingRegion, overlayWindow == nil else { return }
+        isSelectingRegion = true
+        Task {
+            guard await ScreenCapturer.checkPermission() else {
+                isSelectingRegion = false
+                PermissionGuard.requestScreenRecordingPermission()
+                return
+            }
+            let missing = await missingLiveLanguagePacks()
+            currentScreen = NSScreen.underMouse
+            guard missing.isEmpty else {
+                isSelectingRegion = false
+                showFailurePopup(L10n.liveLanguagePackMissing(missing.joined(separator: ", ")))
+                return
+            }
+            overlayWindow = SelectionOverlayWindow()
+            overlayWindow?.show { [weak self] rect in
+                guard let self else { return }
+                self.overlayWindow = nil
+                self.isSelectingRegion = false
+                guard let rect, let screen = self.currentScreen ?? NSScreen.main else { return }
+                self.beginLiveTranslation(region: rect, screen: screen)
+            }
+        }
+    }
+
+    func stopLiveTranslation(_ reason: LiveTranslationSession.StopReason) {
+        liveSession?.stop(reason)  // → onStop → liveSessionDidStop
+    }
+
+    /// 베타 설정에 맞춰 단축키를 켜고 끈다 — Carbon 핫키는 콜백이 무시해도 그 키 조합을 다른 앱에서 가로채므로
+    /// 베타를 끄면 등록 자체를 풀어야 한다 (드래그 번역 updateDragTranslateMode와 같은 방식)
+    func updateLiveTranslateShortcut() {
+        if AppSettings.shared.liveTranslateEnabled {
+            KeyboardShortcuts.enable(.liveTranslate)
+        } else {
+            KeyboardShortcuts.disable(.liveTranslate)
+        }
+    }
+
+    private func missingLiveLanguagePacks() async -> [String] {
+        let manager = LanguagePackManager()
+        await manager.refreshAllStatuses()
+        return LiveTranslatePreflight.missingLanguageNames(
+            statuses: manager.languageStatuses,
+            sourceCode: AppSettings.shared.sourceLanguageCode,
+            targetCode: AppSettings.shared.targetLanguageCode
+        )
+    }
+
+    private func beginLiveTranslation(region rect: CGRect, screen: NSScreen) {
+        guard AppSettings.shared.liveTranslateEnabled, liveSession == nil,
+              let displayID = screen.displayID else { return }
+        let regionWindow = LiveRegionWindow(region: rect, screen: screen)
+        let bar = LiveSubtitleBar()
+        let scale = screen.backingScaleFactor
+        let session = LiveTranslationSession(
+            dependencies: .init(
+                frameSource: liveCapturer,
+                // 원문 언어에 따라 인식 수준이 달라지므로 세션마다 만든다
+                ocr: VisionOCRProvider.liveTranslation(sourceCode: AppSettings.shared.sourceLanguageCode),
+                translator: liveTranslator,
+                isTranslatorBusy: { TranslationBridge.shared.isTranslating },
+                checkReadiness: { text, target in await LiveTranslatePreflight.readiness(for: text, to: target) }
+            ),
+            region: { [weak regionWindow] in
+                regionWindow.map { LiveRegion(rect: $0.region, displayID: displayID, scale: scale) }
+            },
+            languages: { (AppSettings.shared.sourceLanguage, AppSettings.shared.targetLanguage) },
+            preprocess: { AppSettings.shared.ocrTextPreprocessing }
+        )
+        session.onDisplayChange = { [weak self] display in self?.refreshLiveSubtitleBar(display) }
+        session.onStop = { [weak self] reason in self?.liveSessionDidStop(reason) }
+        regionWindow.onStop = { [weak self] in self?.stopLiveTranslation(.user) }
+        regionWindow.onRegionChange = { [weak self] in
+            self?.refreshLiveSubtitleBar(self?.liveSession?.display ?? .hidden)
+        }
+
+        liveSession = session
+        liveRegionWindow = regionWindow
+        liveSubtitleBar = bar
+        liveStartedAt = Date()
+        isLiveTranslating = true
+        installLiveObservers()
+        regionWindow.show()
+        session.start()
+        TelemetryDeck.signal("liveTranslateStarted")
+    }
+
+    private func refreshLiveSubtitleBar(_ display: LiveTranslationSession.Display) {
+        guard let regionWindow = liveRegionWindow, let bar = liveSubtitleBar else { return }
+        bar.update(display: display, regionFrame: regionWindow.regionFrame,
+                   visibleFrame: regionWindow.screen.visibleFrame)
+    }
+
+    private func liveSessionDidStop(_ reason: LiveTranslationSession.StopReason) {
+        let translations = liveSession?.translationCount ?? 0
+        let duration = liveStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        removeLiveObservers()
+        liveRegionWindow?.close()
+        liveSubtitleBar?.close()
+        liveRegionWindow = nil
+        liveSubtitleBar = nil
+        liveSession = nil
+        liveStartedAt = nil
+        isLiveTranslating = false
+        TelemetryDeck.signal("liveTranslateStopped", parameters: [
+            "reason": LiveTelemetry.reasonName(reason),
+            "duration": LiveTelemetry.durationBucket(duration),
+            "translations": translations == 0 ? "0" : (translations < 20 ? "1-19" : "20+"),
+        ])
+        if case .captureFailed(let message) = reason {
+            currentScreen = NSScreen.underMouse
+            showFailurePopup(L10n.liveTranslateStopped(message))
+        }
+    }
+
+    /// 화면 잠금·잠자기·디스플레이 분리 시 자동 중지
+    private func installLiveObservers() {
+        removeLiveObservers()
+        let workspace = NSWorkspace.shared.notificationCenter
+        let distributed = DistributedNotificationCenter.default()
+        let stopForLock: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.stopLiveTranslation(.screenLocked) }
+        }
+        liveObservers = [
+            (workspace, workspace.addObserver(forName: NSWorkspace.screensDidSleepNotification,
+                                              object: nil, queue: .main, using: stopForLock)),
+            (workspace, workspace.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification,
+                                              object: nil, queue: .main, using: stopForLock)),
+            (distributed, distributed.addObserver(forName: .init("com.apple.screenIsLocked"),
+                                                  object: nil, queue: .main, using: stopForLock)),
+            (NotificationCenter.default, NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.liveScreensChanged() }
+            }),
+        ]
+    }
+
+    private func removeLiveObservers() {
+        liveObservers.forEach { $0.center.removeObserver($0.token) }
+        liveObservers.removeAll()
+    }
+
+    private func liveScreensChanged() {
+        guard let regionWindow = liveRegionWindow else { return }
+        let stillAttached = NSScreen.screens.contains { $0.displayID == regionWindow.screen.displayID }
+        guard stillAttached else {
+            stopLiveTranslation(.displayRemoved)
+            return
+        }
+        regionWindow.relayout()
+        refreshLiveSubtitleBar(liveSession?.display ?? .hidden)
+    }
+
+    #if DEBUG
+    /// 실행 확인용 — `-liveTranslateRegion "x,y,w,h"`(주 디스플레이 로컬 좌표)로 영역 선택 없이 시작한다. Release에는 없다.
+    /// 디스플레이가 여러 개면 NSScreen.main은 앱마다 달라질 수 있어 주 디스플레이(screens.first)로 고정한다.
+    func debugStartLiveTranslation(regionSpec: String) {
+        let parts = regionSpec.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        guard parts.count == 4, let screen = NSScreen.screens.first else { return }
+        Task {
+            guard await ScreenCapturer.checkPermission() else {
+                PermissionGuard.requestScreenRecordingPermission()
+                return
+            }
+            beginLiveTranslation(region: CGRect(x: parts[0], y: parts[1], width: parts[2], height: parts[3]),
+                                 screen: screen)
+        }
+    }
+    #endif
+
+    // MARK: - 앱 다시 열기 (이슈 #3)
+
+    private var backgroundNotice: BackgroundNoticePanel?
+
+    /// 실행 중인 앱을 다시 열었을 때 — 온보딩 중이면 그 창을, 아니면 설정 창을 앞으로 가져온다.
+    /// 아이콘이 숨겨져 있으면(앱 설정이든 macOS 메뉴 막대 설정이든) 설정으로 돌아오는 유일한 길이다.
+    func handleReopen() {
+        dismissBackgroundNotice()
+        if focusExistingWindow(.onboarding) { return }
+        showSettings()
+    }
+
+    /// 아이콘이 숨겨진 채로 새로 켜졌으면 "실행 중" 안내를 띄운다.
+    func showBackgroundNoticeIfNeeded(launchKind: LaunchKind) {
+        guard MenuBarIconPolicy.shouldShowBackgroundNotice(
+            isMenuBarIconVisible: AppSettings.shared.showMenuBarIcon,
+            launchKind: launchKind
+        ) else { return }
+
+        let notice = BackgroundNoticePanel { [weak self] in
+            self?.handleReopen()
+        }
+        notice.onDidClose = { [weak self, weak notice] in
+            guard let self, self.backgroundNotice === notice else { return }
+            self.backgroundNotice = nil
+        }
+        backgroundNotice = notice
+        // 실행 직후엔 키 창이 없어 NSScreen.main이 사용자가 보는 화면이 아닐 수 있다 — 방금 앱을 연 화면(마우스 위치)에 띄운다
+        notice.present(on: NSScreen.underMouse)
+    }
+
+    private func dismissBackgroundNotice() {
+        backgroundNotice?.close()
+        backgroundNotice = nil
+    }
+
     // MARK: - 설정 윈도우
 
     func showSettings() {
@@ -614,15 +849,25 @@ final class AppOrchestrator {
         let hostingView = NSHostingView(rootView: SettingsView())
         window.contentView = hostingView
 
-        // 메뉴바 바로 아래, 화면 중앙에 위치
-        if let screen = NSScreen.main {
-            let contentSize = hostingView.fittingSize
-            let x = screen.visibleFrame.midX - contentSize.width / 2
-            let y = screen.visibleFrame.maxY - contentSize.height
-            window.setFrameOrigin(NSPoint(x: x, y: y))
+        // 지금 쓰는 모니터의 메뉴바 아이콘 바로 아래 (아이콘이 없으면 메뉴바 아래 가운데).
+        // 창은 빈 크기로 만들어져 표시될 때 윗변을 고정한 채 커지므로 윗변 기준으로 놓는다.
+        if let screen = NSScreen.underMouse {
+            let anchor = SettingsWindowPlacement.anchor(among: menuBarIconFrames, on: screen.frame)
+            window.setFrameTopLeftPoint(SettingsWindowPlacement.topLeft(
+                windowWidth: hostingView.fittingSize.width, anchor: anchor, screenFrame: screen.frame,
+                visibleFrame: screen.visibleFrame, menuBarThickness: NSStatusBar.system.thickness
+            ))
         }
 
         presentAndStore(window, as: .settings)
+    }
+
+    /// 메뉴바 아이콘 창들 — MenuBarExtra는 NSStatusItem을 내주지 않아 창 목록에서 찾는다 (모니터마다 하나).
+    /// 클래스 이름만 비교하므로 이름이 바뀌면 빈 배열이 되어 메뉴바 아래 가운데로 돌아간다.
+    private var menuBarIconFrames: [CGRect] {
+        NSApp.windows
+            .filter { $0.isVisible && String(describing: type(of: $0)) == "NSStatusBarWindow" }
+            .map(\.frame)
     }
 
     // MARK: - About 윈도우
