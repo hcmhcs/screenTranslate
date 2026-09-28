@@ -81,6 +81,9 @@ nonisolated enum L10n {
     static var downloadingHint: String { s("If a system popup appears, tap Download.\nIt may look frozen, but the download is in progress.\nThis can take a few minutes depending on your network.", ko: "시스템 팝업이 나타나면 다운로드를 눌러주세요.\n화면이 멈춘 것처럼 보일 수 있지만 정상적으로 진행 중입니다.\n네트워크 환경에 따라 몇 분 정도 걸릴 수 있습니다.") }
     static var later: String { s("Later", ko: "나중에") }
     static var liveWaitingForText: String { s("Waiting for text…", ko: "자막을 기다리는 중…") }
+    static var liveToolbarLabel: String { s("LIVE · Drag to move", ko: "LIVE · 드래그해서 이동") }
+    static var liveResizeHelp: String { s("Drag to resize", ko: "드래그해서 크기 조절") }
+    static var stopLiveTranslation: String { s("Stop Live Translate", ko: "실시간 번역 중지") }
     static var backgroundNoticeTitle: String { s("ScreenTranslate is running", ko: "ScreenTranslate 실행 중") }
     static var backgroundNoticeBody: String { s("The menu bar icon is hidden. Use your shortcuts to translate, and open ScreenTranslate again to show Settings.", ko: "메뉴바 아이콘이 숨겨져 있습니다. 단축키로 번역하고, 설정은 ScreenTranslate를 다시 열면 나타납니다.") }
     static var showMenuBarIcon: String { s("Show Menu Bar Icon", ko: "메뉴바 아이콘 표시") }
