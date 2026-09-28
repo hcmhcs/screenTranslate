@@ -129,7 +129,7 @@ cd screenTranslate
 open ScreenTranslate.xcodeproj
 ```
 
-Build and run with Xcode 16+.
+Build and run with Xcode 26+.
 
 ## Uninstall
 
