@@ -218,6 +218,25 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Menu Bar Icon
+
+    /// 메뉴바 아이콘 표시 여부 키 (이슈 #3).
+    /// MenuBarExtra(isInserted:)와 설정 토글은 @AppStorage로 이 키를 직접 관찰한다 —
+    /// 시스템이 아이콘을 빼면서 바인딩을 바꾸는 경우에도 양쪽이 함께 따라가도록.
+    nonisolated static let showMenuBarIconKey = "com.screentranslate.showMenuBarIcon"
+
+    var showMenuBarIcon: Bool {
+        get {
+            access(keyPath: \.showMenuBarIcon)
+            return UserDefaults.standard.object(forKey: Self.showMenuBarIconKey) as? Bool ?? true
+        }
+        set {
+            withMutation(keyPath: \.showMenuBarIcon) {
+                UserDefaults.standard.set(newValue, forKey: Self.showMenuBarIconKey)
+            }
+        }
+    }
+
     // MARK: - Onboarding
 
     var hasCompletedOnboarding: Bool {

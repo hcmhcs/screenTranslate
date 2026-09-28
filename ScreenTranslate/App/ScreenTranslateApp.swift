@@ -11,9 +11,12 @@ extension KeyboardShortcuts.Name {
 @main
 struct ScreenTranslateApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    /// 아이콘을 숨겨도 단축키는 AppOrchestrator.setup()에서 따로 등록되므로 계속 동작한다
+    @AppStorage(AppSettings.showMenuBarIconKey) private var showMenuBarIcon = true
 
     var body: some Scene {
-        MenuBarExtra("ScreenTranslate", image: "MenuBarIcon") {
+        // 같은 값 되쓰기를 걸러야 한다 — 그대로 연결하면 CPU 100% 루프 (Binding+WritingOnlyChanges 참고)
+        MenuBarExtra("ScreenTranslate", image: "MenuBarIcon", isInserted: $showMenuBarIcon.writingOnlyChanges()) {
             MenuBarView()
         }
         .menuBarExtraStyle(.menu)
