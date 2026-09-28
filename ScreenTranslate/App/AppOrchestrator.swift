@@ -621,7 +621,7 @@ final class AppOrchestrator {
     @ObservationIgnored private var liveStartedAt: Date?
     @ObservationIgnored private var liveObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
     @ObservationIgnored private let liveCapturer = RegionScreenCapturer()
-    @ObservationIgnored private let liveOCR = VisionOCRProvider()
+    @ObservationIgnored private let liveOCR = VisionOCRProvider.liveTranslation()
     @ObservationIgnored private let liveTranslator = AppleTranslationProvider()
 
     /// 메뉴·단축키 — 실행 중이면 멈추고, 아니면 점검 후 영역을 골라 시작한다
@@ -775,10 +775,11 @@ final class AppOrchestrator {
     }
 
     #if DEBUG
-    /// 실행 확인용 — `-liveTranslateRegion "x,y,w,h"`(주 화면 로컬 좌표)로 영역 선택 없이 시작한다. Release에는 없다.
+    /// 실행 확인용 — `-liveTranslateRegion "x,y,w,h"`(주 디스플레이 로컬 좌표)로 영역 선택 없이 시작한다. Release에는 없다.
+    /// 디스플레이가 여러 개면 NSScreen.main은 앱마다 달라질 수 있어 주 디스플레이(screens.first)로 고정한다.
     func debugStartLiveTranslation(regionSpec: String) {
         let parts = regionSpec.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-        guard parts.count == 4, let screen = NSScreen.main else { return }
+        guard parts.count == 4, let screen = NSScreen.screens.first else { return }
         Task {
             guard await ScreenCapturer.checkPermission() else {
                 PermissionGuard.requestScreenRecordingPermission()
