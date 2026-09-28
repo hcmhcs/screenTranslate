@@ -604,6 +604,15 @@ final class AppOrchestrator {
         presentAndStore(window, as: .onboarding)
     }
 
+    // MARK: - 앱 다시 열기 (이슈 #3)
+
+    /// 실행 중인 앱을 다시 열었을 때 — 온보딩 중이면 그 창을, 아니면 설정 창을 앞으로 가져온다.
+    /// 아이콘이 숨겨져 있으면(앱 설정이든 macOS 메뉴 막대 설정이든) 설정으로 돌아오는 유일한 길이다.
+    func handleReopen() {
+        if focusExistingWindow(.onboarding) { return }
+        showSettings()
+    }
+
     // MARK: - 설정 윈도우
 
     func showSettings() {

@@ -62,4 +62,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 첫 실행 온보딩 표시
         AppOrchestrator.shared.showOnboardingIfNeeded()
     }
+
+    /// Finder·Spotlight·Raycast 등에서 이미 실행 중인 앱을 다시 열면 호출된다.
+    /// hasVisibleWindows는 투명 브리지 창 때문에 항상 true라 판단에 쓰지 않는다 (2026-09-29 실측).
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        AppOrchestrator.shared.handleReopen()
+        return false  // 직접 처리했으므로 AppKit 기본 동작은 하지 않는다
+    }
 }
