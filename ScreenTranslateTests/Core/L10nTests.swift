@@ -128,6 +128,7 @@ final class L10nTests: XCTestCase {
             ("later", L10n.later),
             ("backgroundNoticeTitle", L10n.backgroundNoticeTitle),
             ("backgroundNoticeBody", L10n.backgroundNoticeBody),
+            ("liveWaitingForText", L10n.liveWaitingForText),
             ("showMenuBarIcon", L10n.showMenuBarIcon),
             ("showMenuBarIconHelp", L10n.showMenuBarIconHelp),
             ("menuBarIconDesc", L10n.menuBarIconDesc),
