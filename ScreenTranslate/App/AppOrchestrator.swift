@@ -849,15 +849,25 @@ final class AppOrchestrator {
         let hostingView = NSHostingView(rootView: SettingsView())
         window.contentView = hostingView
 
-        // 메뉴바 바로 아래, 화면 중앙에 위치
-        if let screen = NSScreen.main {
-            let contentSize = hostingView.fittingSize
-            let x = screen.visibleFrame.midX - contentSize.width / 2
-            let y = screen.visibleFrame.maxY - contentSize.height
-            window.setFrameOrigin(NSPoint(x: x, y: y))
+        // 지금 쓰는 모니터의 메뉴바 아이콘 바로 아래 (아이콘이 없으면 메뉴바 아래 가운데).
+        // 창은 빈 크기로 만들어져 표시될 때 윗변을 고정한 채 커지므로 윗변 기준으로 놓는다.
+        if let screen = NSScreen.underMouse {
+            let anchor = SettingsWindowPlacement.anchor(among: menuBarIconFrames, on: screen.frame)
+            window.setFrameTopLeftPoint(SettingsWindowPlacement.topLeft(
+                windowWidth: hostingView.fittingSize.width, anchor: anchor, screenFrame: screen.frame,
+                visibleFrame: screen.visibleFrame, menuBarThickness: NSStatusBar.system.thickness
+            ))
         }
 
         presentAndStore(window, as: .settings)
+    }
+
+    /// 메뉴바 아이콘 창들 — MenuBarExtra는 NSStatusItem을 내주지 않아 창 목록에서 찾는다 (모니터마다 하나).
+    /// 클래스 이름만 비교하므로 이름이 바뀌면 빈 배열이 되어 메뉴바 아래 가운데로 돌아간다.
+    private var menuBarIconFrames: [CGRect] {
+        NSApp.windows
+            .filter { $0.isVisible && String(describing: type(of: $0)) == "NSStatusBarWindow" }
+            .map(\.frame)
     }
 
     // MARK: - About 윈도우
