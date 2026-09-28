@@ -234,6 +234,8 @@ final class L10nTests: XCTestCase {
             ("ocrFailed", L10n.ocrFailed("test")),
             ("translationFailed", L10n.translationFailed("test")),
             ("engineHttpError", L10n.engineHttpError("DeepL", status: 500)),
+            ("liveLanguagePackMissing", L10n.liveLanguagePackMissing("Korean")),
+            ("liveTranslateStopped", L10n.liveTranslateStopped("test")),
             ("featuresWithoutShortcut", L10n.featuresWithoutShortcut("Drag Translate")),
         ]
     }

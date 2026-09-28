@@ -350,6 +350,15 @@ nonisolated enum L10n {
 
     // MARK: - Errors
 
+    static func liveLanguagePackMissing(_ names: String) -> String {
+        s("Live Translate uses Apple Translation. Download the \(names) language pack in Settings first.",
+          ko: "실시간 번역은 Apple 번역을 씁니다. 설정에서 \(names) 언어팩을 먼저 받아 주세요.")
+    }
+
+    static func liveTranslateStopped(_ reason: String) -> String {
+        s("Live Translate stopped: \(reason)", ko: "실시간 번역이 멈췄습니다: \(reason)")
+    }
+
     static var noTextFound: String { s("No text found in the selected area.", ko: "선택한 영역에서 텍스트를 찾을 수 없습니다.") }
     static var unsupportedLanguagePair: String { s("This language pair is not supported.", ko: "이 언어 조합은 지원되지 않습니다.") }
     static var noTextToTranslate: String { s("No text to translate.", ko: "번역할 텍스트가 없습니다.") }

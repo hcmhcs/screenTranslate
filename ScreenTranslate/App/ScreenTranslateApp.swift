@@ -74,6 +74,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppOrchestrator.shared.showOnboardingIfNeeded()
         // 아이콘이 숨겨진 채 직접 켰으면 실행 중임을 알린다
         AppOrchestrator.shared.showBackgroundNoticeIfNeeded(launchKind: launchKind)
+
+        #if DEBUG
+        // 실행 확인용 훅 — Release 빌드에는 포함되지 않는다
+        if let spec = UserDefaults.standard.string(forKey: "liveTranslateRegion") {
+            AppOrchestrator.shared.debugStartLiveTranslation(regionSpec: spec)
+        }
+        #endif
     }
 
     /// Finder·Spotlight·Raycast 등에서 이미 실행 중인 앱을 다시 열면 호출된다.
