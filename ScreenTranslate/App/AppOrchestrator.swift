@@ -123,6 +123,15 @@ final class AppOrchestrator {
             }
         }
 
+        // 실시간 번역(베타): 핸들러는 한 번만 등록하고 베타 여부는 콜백에서 확인한다
+        KeyboardShortcuts.onKeyUp(for: .liveTranslate) { [weak self] in
+            Task { @MainActor in
+                guard AppSettings.shared.liveTranslateEnabled else { return }
+                self?.toggleLiveTranslation()
+            }
+        }
+        updateLiveTranslateShortcut()
+
         // Sparkle canCheckForUpdates KVO → @Observable 브리지
         updateCancellable = updaterController.updater
             .publisher(for: \.canCheckForUpdates)
@@ -603,6 +612,196 @@ final class AppOrchestrator {
 
         presentAndStore(window, as: .onboarding)
     }
+
+    // MARK: - 실시간 번역 (베타, PR #4)
+
+    private(set) var isLiveTranslating = false
+    @ObservationIgnored private var liveSession: LiveTranslationSession?
+    @ObservationIgnored private var liveRegionWindow: LiveRegionWindow?
+    @ObservationIgnored private var liveSubtitleBar: LiveSubtitleBar?
+    @ObservationIgnored private var liveStartedAt: Date?
+    @ObservationIgnored private var liveObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
+    @ObservationIgnored private let liveCapturer = RegionScreenCapturer()
+    @ObservationIgnored private let liveTranslator = AppleTranslationProvider()
+
+    /// 메뉴·단축키 — 실행 중이면 멈추고, 아니면 점검 후 영역을 골라 시작한다
+    func toggleLiveTranslation() {
+        if isLiveTranslating {
+            stopLiveTranslation(.user)
+            return
+        }
+        guard AppSettings.shared.liveTranslateEnabled, !isSelectingRegion, overlayWindow == nil else { return }
+        isSelectingRegion = true
+        Task {
+            guard await ScreenCapturer.checkPermission() else {
+                isSelectingRegion = false
+                PermissionGuard.requestScreenRecordingPermission()
+                return
+            }
+            let missing = await missingLiveLanguagePacks()
+            currentScreen = NSScreen.underMouse
+            guard missing.isEmpty else {
+                isSelectingRegion = false
+                showFailurePopup(L10n.liveLanguagePackMissing(missing.joined(separator: ", ")))
+                return
+            }
+            overlayWindow = SelectionOverlayWindow()
+            overlayWindow?.show { [weak self] rect in
+                guard let self else { return }
+                self.overlayWindow = nil
+                self.isSelectingRegion = false
+                guard let rect, let screen = self.currentScreen ?? NSScreen.main else { return }
+                self.beginLiveTranslation(region: rect, screen: screen)
+            }
+        }
+    }
+
+    func stopLiveTranslation(_ reason: LiveTranslationSession.StopReason) {
+        liveSession?.stop(reason)  // → onStop → liveSessionDidStop
+    }
+
+    /// 베타 설정에 맞춰 단축키를 켜고 끈다 — Carbon 핫키는 콜백이 무시해도 그 키 조합을 다른 앱에서 가로채므로
+    /// 베타를 끄면 등록 자체를 풀어야 한다 (드래그 번역 updateDragTranslateMode와 같은 방식)
+    func updateLiveTranslateShortcut() {
+        if AppSettings.shared.liveTranslateEnabled {
+            KeyboardShortcuts.enable(.liveTranslate)
+        } else {
+            KeyboardShortcuts.disable(.liveTranslate)
+        }
+    }
+
+    private func missingLiveLanguagePacks() async -> [String] {
+        let manager = LanguagePackManager()
+        await manager.refreshAllStatuses()
+        return LiveTranslatePreflight.missingLanguageNames(
+            statuses: manager.languageStatuses,
+            sourceCode: AppSettings.shared.sourceLanguageCode,
+            targetCode: AppSettings.shared.targetLanguageCode
+        )
+    }
+
+    private func beginLiveTranslation(region rect: CGRect, screen: NSScreen) {
+        guard AppSettings.shared.liveTranslateEnabled, liveSession == nil,
+              let displayID = screen.displayID else { return }
+        let regionWindow = LiveRegionWindow(region: rect, screen: screen)
+        let bar = LiveSubtitleBar()
+        let scale = screen.backingScaleFactor
+        let session = LiveTranslationSession(
+            dependencies: .init(
+                frameSource: liveCapturer,
+                // 원문 언어에 따라 인식 수준이 달라지므로 세션마다 만든다
+                ocr: VisionOCRProvider.liveTranslation(sourceCode: AppSettings.shared.sourceLanguageCode),
+                translator: liveTranslator,
+                isTranslatorBusy: { TranslationBridge.shared.isTranslating },
+                checkReadiness: { text, target in await LiveTranslatePreflight.readiness(for: text, to: target) }
+            ),
+            region: { [weak regionWindow] in
+                regionWindow.map { LiveRegion(rect: $0.region, displayID: displayID, scale: scale) }
+            },
+            languages: { (AppSettings.shared.sourceLanguage, AppSettings.shared.targetLanguage) },
+            preprocess: { AppSettings.shared.ocrTextPreprocessing }
+        )
+        session.onDisplayChange = { [weak self] display in self?.refreshLiveSubtitleBar(display) }
+        session.onStop = { [weak self] reason in self?.liveSessionDidStop(reason) }
+        regionWindow.onStop = { [weak self] in self?.stopLiveTranslation(.user) }
+        regionWindow.onRegionChange = { [weak self] in
+            self?.refreshLiveSubtitleBar(self?.liveSession?.display ?? .hidden)
+        }
+
+        liveSession = session
+        liveRegionWindow = regionWindow
+        liveSubtitleBar = bar
+        liveStartedAt = Date()
+        isLiveTranslating = true
+        installLiveObservers()
+        regionWindow.show()
+        session.start()
+        TelemetryDeck.signal("liveTranslateStarted")
+    }
+
+    private func refreshLiveSubtitleBar(_ display: LiveTranslationSession.Display) {
+        guard let regionWindow = liveRegionWindow, let bar = liveSubtitleBar else { return }
+        bar.update(display: display, regionFrame: regionWindow.regionFrame,
+                   visibleFrame: regionWindow.screen.visibleFrame)
+    }
+
+    private func liveSessionDidStop(_ reason: LiveTranslationSession.StopReason) {
+        let translations = liveSession?.translationCount ?? 0
+        let duration = liveStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        removeLiveObservers()
+        liveRegionWindow?.close()
+        liveSubtitleBar?.close()
+        liveRegionWindow = nil
+        liveSubtitleBar = nil
+        liveSession = nil
+        liveStartedAt = nil
+        isLiveTranslating = false
+        TelemetryDeck.signal("liveTranslateStopped", parameters: [
+            "reason": LiveTelemetry.reasonName(reason),
+            "duration": LiveTelemetry.durationBucket(duration),
+            "translations": translations == 0 ? "0" : (translations < 20 ? "1-19" : "20+"),
+        ])
+        if case .captureFailed(let message) = reason {
+            currentScreen = NSScreen.underMouse
+            showFailurePopup(L10n.liveTranslateStopped(message))
+        }
+    }
+
+    /// 화면 잠금·잠자기·디스플레이 분리 시 자동 중지
+    private func installLiveObservers() {
+        removeLiveObservers()
+        let workspace = NSWorkspace.shared.notificationCenter
+        let distributed = DistributedNotificationCenter.default()
+        let stopForLock: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.stopLiveTranslation(.screenLocked) }
+        }
+        liveObservers = [
+            (workspace, workspace.addObserver(forName: NSWorkspace.screensDidSleepNotification,
+                                              object: nil, queue: .main, using: stopForLock)),
+            (workspace, workspace.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification,
+                                              object: nil, queue: .main, using: stopForLock)),
+            (distributed, distributed.addObserver(forName: .init("com.apple.screenIsLocked"),
+                                                  object: nil, queue: .main, using: stopForLock)),
+            (NotificationCenter.default, NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.liveScreensChanged() }
+            }),
+        ]
+    }
+
+    private func removeLiveObservers() {
+        liveObservers.forEach { $0.center.removeObserver($0.token) }
+        liveObservers.removeAll()
+    }
+
+    private func liveScreensChanged() {
+        guard let regionWindow = liveRegionWindow else { return }
+        let stillAttached = NSScreen.screens.contains { $0.displayID == regionWindow.screen.displayID }
+        guard stillAttached else {
+            stopLiveTranslation(.displayRemoved)
+            return
+        }
+        regionWindow.relayout()
+        refreshLiveSubtitleBar(liveSession?.display ?? .hidden)
+    }
+
+    #if DEBUG
+    /// 실행 확인용 — `-liveTranslateRegion "x,y,w,h"`(주 디스플레이 로컬 좌표)로 영역 선택 없이 시작한다. Release에는 없다.
+    /// 디스플레이가 여러 개면 NSScreen.main은 앱마다 달라질 수 있어 주 디스플레이(screens.first)로 고정한다.
+    func debugStartLiveTranslation(regionSpec: String) {
+        let parts = regionSpec.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        guard parts.count == 4, let screen = NSScreen.screens.first else { return }
+        Task {
+            guard await ScreenCapturer.checkPermission() else {
+                PermissionGuard.requestScreenRecordingPermission()
+                return
+            }
+            beginLiveTranslation(region: CGRect(x: parts[0], y: parts[1], width: parts[2], height: parts[3]),
+                                 screen: screen)
+        }
+    }
+    #endif
 
     // MARK: - 앱 다시 열기 (이슈 #3)
 

@@ -9,6 +9,8 @@ extension KeyboardShortcuts.Name {
     static let translate = Self("translate", default: .init(.e, modifiers: [.command]))
     static let dragTranslate = Self("dragTranslate", default: .init(.z, modifiers: [.command, .option]))
     static let quickTranslate = Self("quickTranslate", default: .init(.e, modifiers: [.command, .shift]))
+    /// 실시간 번역(베타) — 기본값 없음: 다른 앱 단축키와의 충돌을 피하고, 베타를 켠 사람만 직접 정한다
+    static let liveTranslate = Self("liveTranslate")
 }
 
 @main
@@ -72,6 +74,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppOrchestrator.shared.showOnboardingIfNeeded()
         // 아이콘이 숨겨진 채 직접 켰으면 실행 중임을 알린다
         AppOrchestrator.shared.showBackgroundNoticeIfNeeded(launchKind: launchKind)
+
+        #if DEBUG
+        // 실행 확인용 훅 — Release 빌드에는 포함되지 않는다
+        if let spec = UserDefaults.standard.string(forKey: "liveTranslateRegion") {
+            AppOrchestrator.shared.debugStartLiveTranslation(regionSpec: spec)
+        }
+        #endif
     }
 
     /// Finder·Spotlight·Raycast 등에서 이미 실행 중인 앱을 다시 열면 호출된다.

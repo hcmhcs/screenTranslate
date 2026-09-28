@@ -63,6 +63,16 @@ Screen capture with OCR, or select text and translate directly. On-device by def
 
 No copy-paste, no browser tabs, no context switching.
 
+### Live Translate (Beta)
+
+For subtitles burned into videos, games, or streams — text you can't select.
+
+1. **Turn it on** — Settings → Advanced → Beta Features → Live Translate
+2. **Pick the area** — Choose **Live Translate (Beta)** from the menu bar (or set your own shortcut) and drag over the subtitles
+3. **Read along** — Translations appear in a bar next to the area and follow the subtitles as they change. Drag the **LIVE** bar to move the area, drag its corner to resize it, and click ✕ to stop
+
+> **Beta** — Uses Apple Translation only (on-device, no API charges). Protected videos such as Netflix can't be captured. It keeps capturing while running, so it uses more battery. Found a problem? [Open an issue](https://github.com/hcmhcs/screenTranslate/issues).
+
 ## Features
 
 - **Free & Open Source** — No subscription, no ads, no hidden costs. Licensed under GPL-3.0
@@ -70,6 +80,7 @@ No copy-paste, no browser tabs, no context switching.
 - **Instant Translation** — One shortcut triggers area selection, OCR, and translation in a single motion
 - **Text Selection Translation** — Select text in any app and translate directly — no OCR needed. Supports even more languages with cloud engines
 - **Quick Translate** — Type and translate instantly with a minimal floating panel
+- **Live Translate (Beta)** — Keeps translating an area you choose, like subtitles burned into a video
 - **20 Languages** — Auto-detect source language supported. Full list below
 - **Works Offline** — Download language packs once, translate anywhere without internet
 - **Optional Cloud Engines (BYOK)** — Already works without any API key. Optionally connect DeepL, Google Cloud, or Azure for more languages
@@ -150,6 +161,14 @@ Open Settings from the menu bar icon to:
 | Data | SwiftData |
 | Updates | Sparkle |
 | Architecture | @Observable, MainActor isolation |
+
+## Contributors
+
+Thanks to everyone who has helped make ScreenTranslate better:
+
+- [@sickerin](https://github.com/sickerin) — original idea and prototype for Live Translate ([#4](https://github.com/hcmhcs/screenTranslate/pull/4))
+
+Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

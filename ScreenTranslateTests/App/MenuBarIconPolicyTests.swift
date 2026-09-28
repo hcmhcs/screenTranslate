@@ -78,6 +78,18 @@ import Testing
             dragTranslateMode: "doubleCopy", hasQuickTranslateShortcut: true).isEmpty)
     }
 
+    @Test("live translate counts only when the beta is on and has no shortcut")
+    func liveTranslateWithoutShortcut() {
+        #expect(MenuBarIconPolicy.featuresWithoutShortcut(
+            hasScreenTranslateShortcut: true, hasDragTranslateShortcut: true,
+            dragTranslateMode: "custom", hasQuickTranslateShortcut: true,
+            liveTranslateEnabled: true, hasLiveTranslateShortcut: false) == [.liveTranslate])
+        #expect(MenuBarIconPolicy.featuresWithoutShortcut(
+            hasScreenTranslateShortcut: true, hasDragTranslateShortcut: true,
+            dragTranslateMode: "custom", hasQuickTranslateShortcut: true,
+            liveTranslateEnabled: false, hasLiveTranslateShortcut: false).isEmpty)
+    }
+
     // MARK: - 숨기기 확인창 문구
 
     @Test("confirmation message is the plain notice when every feature has a shortcut")

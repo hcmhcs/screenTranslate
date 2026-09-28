@@ -265,6 +265,21 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Live Translate (Beta)
+
+    /// 실시간 자막 번역 베타 — 꺼져 있으면 메뉴 항목이 숨고 단축키도 무시된다
+    var liveTranslateEnabled: Bool {
+        get {
+            access(keyPath: \.liveTranslateEnabled)
+            return UserDefaults.standard.bool(forKey: "com.screentranslate.liveTranslateEnabled")
+        }
+        set {
+            withMutation(keyPath: \.liveTranslateEnabled) {
+                UserDefaults.standard.set(newValue, forKey: "com.screentranslate.liveTranslateEnabled")
+            }
+        }
+    }
+
     // MARK: - Advanced
 
     var ocrTextPreprocessing: Bool {

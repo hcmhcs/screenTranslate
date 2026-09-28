@@ -109,6 +109,19 @@ extension SerializedDefaultsSuite {
         #expect(AppSettings.shared.showMenuBarIcon == false)
     }
 
+    @Test("live translate is off by default")
+    func defaultLiveTranslateEnabled() {
+        let key = "com.screentranslate.liveTranslateEnabled"
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+
+        UserDefaults.standard.removeObject(forKey: key)
+        #expect(AppSettings.shared.liveTranslateEnabled == false)
+    }
+
     // MARK: - Computed Properties
 
     @Test("sourceLanguage returns nil when code is auto")

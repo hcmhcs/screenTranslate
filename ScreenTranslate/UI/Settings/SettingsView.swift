@@ -627,6 +627,25 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            Section(L10n.betaSection) {
+                Toggle(isOn: $settings.liveTranslateEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.liveTranslateFeature)
+                        Text(L10n.liveTranslateDesc)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: settings.liveTranslateEnabled) { _, isOn in
+                    AppOrchestrator.shared.updateLiveTranslateShortcut()
+                    if !isOn { AppOrchestrator.shared.stopLiveTranslation(.betaDisabled) }
+                }
+
+                if settings.liveTranslateEnabled {
+                    KeyboardShortcuts.Recorder(L10n.liveTranslateShortcut, name: .liveTranslate)
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
@@ -654,7 +673,9 @@ struct SettingsView: View {
             hasScreenTranslateShortcut: KeyboardShortcuts.getShortcut(for: .translate) != nil,
             hasDragTranslateShortcut: KeyboardShortcuts.getShortcut(for: .dragTranslate) != nil,
             dragTranslateMode: settings.dragTranslateMode,
-            hasQuickTranslateShortcut: KeyboardShortcuts.getShortcut(for: .quickTranslate) != nil
+            hasQuickTranslateShortcut: KeyboardShortcuts.getShortcut(for: .quickTranslate) != nil,
+            liveTranslateEnabled: settings.liveTranslateEnabled,
+            hasLiveTranslateShortcut: KeyboardShortcuts.getShortcut(for: .liveTranslate) != nil
         )
         return MenuBarIconPolicy.hideConfirmationMessage(featuresWithoutShortcut: missing)
     }
