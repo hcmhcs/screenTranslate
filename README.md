@@ -76,7 +76,7 @@ For subtitles burned into videos, games, or streams — text you can't select.
 ## Features
 
 - **Free & Open Source** — No subscription, no ads, no hidden costs. Licensed under GPL-3.0
-- **Completely Private** — On-device by default. No servers, no tracking, no data collection
+- **Completely Private** — On-device by default. No servers, no tracking, no personal data — only anonymous usage statistics ([privacy policy](https://screentranslate.filient.ai/privacy?utm_source=github&utm_medium=readme&utm_campaign=screentranslate))
 - **Instant Translation** — One shortcut triggers area selection, OCR, and translation in a single motion
 - **Text Selection Translation** — Select text in any app and translate directly — no OCR needed. Supports even more languages with cloud engines
 - **Quick Translate** — Type and translate instantly with a minimal floating panel
